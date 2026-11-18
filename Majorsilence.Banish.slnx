@@ -9,6 +9,7 @@
     <Project Path="src/Majorsilence.Banish.Store.Ef/Majorsilence.Banish.Store.Ef.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Majorsilence.Banish.Integration.Tests/Majorsilence.Banish.Integration.Tests.csproj" />
     <Project Path="tests/Majorsilence.Banish.Tests/Majorsilence.Banish.Tests.csproj" />
   </Folder>
 </Solution>

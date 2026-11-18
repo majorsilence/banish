@@ -46,6 +46,10 @@ public static class EfStoreRegistration
         {
             builder.UseSqlServer(Require(store));
         }
+        else if (provider.Equals(StoreProviders.MySql, StringComparison.OrdinalIgnoreCase))
+        {
+            builder.UseMySQL(Require(store));
+        }
         else
         {
             throw new ArgumentException($"'{provider}' is not an EF Core store provider.");
