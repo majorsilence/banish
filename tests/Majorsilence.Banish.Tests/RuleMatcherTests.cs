@@ -56,4 +56,23 @@ public class RuleMatcherTests
         Assert.That(ip.ToString(), Is.EqualTo("198.51.100.4"));
         Assert.That(matcher.TryMatch("<Data Name='IpAddress'>-</Data>", out _), Is.False);
     }
+
+    [TestCase("<Data Name='IpAddress'>2001:db8::25</Data>", "2001:db8::25")]
+    [TestCase("<Data Name='IpAddress'>::ffff:198.51.100.4</Data>", "198.51.100.4", Description = "IPv4-mapped IPv6, as written for dual-stack listeners")]
+    [TestCase("<Data Name=\"IpAddress\">198.51.100.4</Data>", "198.51.100.4")]
+    public void WindowsLogonEventAddressForms(string xml, string expected)
+    {
+        var matcher = new RuleMatcher(new RuleOptions { Name = "w", Patterns = [DefaultRules.WindowsFailedLogonPattern] });
+        Assert.That(matcher.TryMatch(xml, out var ip), Is.True);
+        Assert.That(ip.ToString(), Is.EqualTo(expected));
+    }
+
+    [TestCase("<Data Name='IpAddress'></Data>")]
+    [TestCase("<Data Name='IpAddress'>0.0.0.0</Data>")]
+    [TestCase("<Data Name='IpPort'>51234</Data>")]
+    public void WindowsLogonEventWithoutAUsableAddressIsIgnored(string xml)
+    {
+        var matcher = new RuleMatcher(new RuleOptions { Name = "w", Patterns = [DefaultRules.WindowsFailedLogonPattern] });
+        Assert.That(matcher.TryMatch(xml, out _), Is.False);
+    }
 }

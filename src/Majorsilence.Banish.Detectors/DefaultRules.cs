@@ -17,7 +17,8 @@ public static class DefaultRules
         @"sshd(?:\[\d+\])?: error: maximum authentication attempts exceeded for .*? from (?<ip>\S+) port \d+",
     ];
 
-    public const string WindowsFailedLogonPattern = @"<Data Name='IpAddress'>(?<ip>[^<]+)</Data>";
+    /// <summary>Event 4625's source address. Windows writes the attribute with single quotes; double quotes are accepted too.</summary>
+    public const string WindowsFailedLogonPattern = @"<Data Name=['""]IpAddress['""]>(?<ip>[^<]+)</Data>";
 
     public static List<RuleOptions> ForCurrentOs()
     {
