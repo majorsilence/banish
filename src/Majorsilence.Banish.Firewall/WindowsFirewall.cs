@@ -14,19 +14,33 @@ public sealed class WindowsFirewall : IFirewall
 {
     private const int ActionBlock = 0;
     private const int DirectionIn = 1;
+    private const int ProfilesAll = 0x7FFFFFFF;
+
+    private readonly string _prefix;
+
+    public WindowsFirewall()
+        : this(WindowsFirewallRules.RulePrefix)
+    {
+    }
+
+    /// <summary>Uses a different rule-name prefix; tests use this so they never touch real Banish rules.</summary>
+    public WindowsFirewall(string rulePrefix)
+    {
+        _prefix = rulePrefix;
+    }
 
     public string Name => "windows-firewall";
 
     public Task ApplyAsync(IReadOnlyCollection<string> addresses, CancellationToken cancellationToken)
     {
-        var chunks = WindowsFirewallRules.Plan(addresses);
+        var chunks = WindowsFirewallRules.Plan(addresses, _prefix);
         dynamic policy = CreatePolicy();
         dynamic rules = policy.Rules;
         var existing = new Dictionary<string, dynamic>(StringComparer.OrdinalIgnoreCase);
         foreach (dynamic rule in rules)
         {
             string name = rule.Name;
-            if (name.StartsWith(WindowsFirewallRules.RulePrefix, StringComparison.OrdinalIgnoreCase))
+            if (name.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase))
             {
                 existing[name] = rule;
             }
@@ -36,20 +50,28 @@ public sealed class WindowsFirewall : IFirewall
         {
             if (existing.Remove(name, out dynamic? current))
             {
-                if (!string.Equals((string)current.RemoteAddresses, remote, StringComparison.OrdinalIgnoreCase))
+                // Windows rewrites RemoteAddresses on read (sorted, netmasks, IPv6 hosts as ranges), so the
+                // desired list is run through a scratch rule before comparing; otherwise every apply would rewrite.
+                if (!string.Equals((string)current.RemoteAddresses, Normalize(remote), StringComparison.OrdinalIgnoreCase)
+                    || !(bool)current.Enabled
+                    || (int)current.Action != ActionBlock
+                    || (int)current.Direction != DirectionIn)
                 {
+                    current.Action = ActionBlock;
+                    current.Direction = DirectionIn;
+                    current.Enabled = true;
                     current.RemoteAddresses = remote;
                 }
             }
             else
             {
-                dynamic rule = Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FWRule", throwOnError: true)!)!;
+                dynamic rule = NewRule();
                 rule.Name = name;
                 rule.Description = "Blocked by Banish";
                 rule.Action = ActionBlock;
                 rule.Direction = DirectionIn;
                 rule.Enabled = true;
-                rule.Profiles = 0x7FFFFFFF;
+                rule.Profiles = ProfilesAll;
                 rule.RemoteAddresses = remote;
                 rules.Add(rule);
             }
@@ -65,6 +87,17 @@ public sealed class WindowsFirewall : IFirewall
 
     public Task ClearAsync(CancellationToken cancellationToken) => ApplyAsync([], cancellationToken);
 
+    /// <summary>The address list as Windows stores and returns it (used for comparisons).</summary>
+    public static string Normalize(string remoteAddresses)
+    {
+        dynamic scratch = NewRule();
+        scratch.RemoteAddresses = remoteAddresses;
+        return (string)scratch.RemoteAddresses;
+    }
+
+    private static dynamic NewRule() =>
+        Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FWRule", throwOnError: true)!)!;
+
     private static dynamic CreatePolicy() =>
         Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FwPolicy2", throwOnError: true)!)!;
 }
@@ -76,13 +109,16 @@ public static class WindowsFirewallRules
     public const int AddressesPerRule = 1000;
 
     /// <summary>Splits addresses into rule names and comma-separated remote-address lists.</summary>
-    public static List<(string Name, string RemoteAddresses)> Plan(IReadOnlyCollection<string> addresses)
+    public static List<(string Name, string RemoteAddresses)> Plan(IReadOnlyCollection<string> addresses) =>
+        Plan(addresses, RulePrefix);
+
+    public static List<(string Name, string RemoteAddresses)> Plan(IReadOnlyCollection<string> addresses, string prefix)
     {
         var result = new List<(string, string)>();
         int index = 0;
         foreach (var chunk in addresses.OrderBy(a => a, StringComparer.Ordinal).Chunk(AddressesPerRule))
         {
-            result.Add((RulePrefix + index++, string.Join(",", chunk)));
+            result.Add((prefix + index++, string.Join(",", chunk)));
         }
 
         return result;
