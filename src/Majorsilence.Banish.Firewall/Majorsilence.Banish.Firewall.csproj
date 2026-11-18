@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Banish.Core\Majorsilence.Banish.Core.csproj" />
+  </ItemGroup>
+</Project>

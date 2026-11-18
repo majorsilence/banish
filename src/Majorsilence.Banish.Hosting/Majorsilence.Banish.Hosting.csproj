@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Banish.Core\Majorsilence.Banish.Core.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Detectors\Majorsilence.Banish.Detectors.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Firewall\Majorsilence.Banish.Firewall.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Store.Ef\Majorsilence.Banish.Store.Ef.csproj" />
+  </ItemGroup>
+</Project>

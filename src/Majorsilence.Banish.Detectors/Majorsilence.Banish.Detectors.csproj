@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.EventLog" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Banish.Core\Majorsilence.Banish.Core.csproj" />
+  </ItemGroup>
+</Project>
