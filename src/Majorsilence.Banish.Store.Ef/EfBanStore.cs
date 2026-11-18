@@ -65,6 +65,43 @@ public sealed class EfBanStore : IBanStore
         return ban;
     }
 
+    public async Task<int> AddRangeAsync(IReadOnlyCollection<Ban> bans, CancellationToken cancellationToken)
+    {
+        int added = 0;
+        var now = Now;
+        foreach (var batch in bans.Chunk(1000))
+        {
+            await using var db = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            var existing = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var chunk in batch.Select(b => b.Address).Chunk(500))
+            {
+                var found = await db.Bans.AsNoTracking()
+                    .Where(b => chunk.Contains(b.Address) && b.RemovedUtc == null && (b.ExpiresUtc == null || b.ExpiresUtc > now))
+                    .Select(b => b.Address)
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+                existing.UnionWith(found);
+            }
+
+            foreach (var ban in batch.Where(b => !existing.Contains(b.Address)).DistinctBy(b => b.Address))
+            {
+                ban.Id = Guid.NewGuid();
+                ban.CreatedUtc = ban.CreatedUtc == default ? now : ban.CreatedUtc;
+                ban.UpdatedUtc = now;
+                if (string.IsNullOrEmpty(ban.MachineName))
+                {
+                    ban.MachineName = _machineName;
+                }
+
+                db.Bans.Add(ban);
+                added++;
+            }
+
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return added;
+    }
+
     public async Task<int> RemoveAsync(string address, string removedBy, CancellationToken cancellationToken)
     {
         await using var db = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);

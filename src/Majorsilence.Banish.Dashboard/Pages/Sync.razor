@@ -1,0 +1,110 @@
+@page "/sync"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = Policies.Admin)]
+@inject DashboardService Dash
+
+<PageTitle>Banish – Blocklists</PageTitle>
+<h1>Blocklists</h1>
+<p class="muted">Public IP lists that Banish downloads on a schedule. Entries are added as bans with source <code>blocklist:&lt;name&gt;</code> and lifted when they leave the list. Allow-listed addresses are never imported.</p>
+
+<div class="row" style="margin-bottom:16px">
+    <button class="primary" disabled="@_busy" @onclick="() => RunAsync(false)">Sync now</button>
+    <button disabled="@_busy" @onclick="() => RunAsync(true)">Preview (dry run)</button>
+    @if (_busy)
+    {
+        <span class="muted">Working…</span>
+    }
+</div>
+
+@if (_message is not null)
+{
+    <div class="notice" role="status">@_message</div>
+}
+
+@if (_sources is null)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_sources.Count == 0)
+{
+    <p class="muted">No sources are configured. Add them under <code>Sync:Sources</code> in banish.json.</p>
+}
+else
+{
+    <div class="scroll">
+        <table>
+            <thead><tr><th>Source</th><th>Enabled</th><th>Every</th><th>Last result</th><th>Fetched</th><th>Valid</th><th>Skipped</th><th>Added</th><th>Removed</th><th>When</th></tr></thead>
+            <tbody>
+                @foreach (var source in _sources)
+                {
+                    var r = _results.FirstOrDefault(x => x.Source.Equals(source.Name, StringComparison.OrdinalIgnoreCase));
+                    <tr>
+                        <td>@source.Name<div class="muted">@source.Url</div></td>
+                        <td>@(source.Enabled ? "yes" : "no")</td>
+                        <td>@(source.IntervalMinutes) min</td>
+                        <td>
+                            @if (r is null)
+                            {
+                                <span class="muted">not yet</span>
+                            }
+                            else
+                            {
+                                <span class="status @StatusClass(r)"><span class="icon" aria-hidden="true">@StatusIcon(r)</span>@r.Status</span>
+                                @if (r.Message is not null)
+                                {
+                                    <div class="muted">@r.Message</div>
+                                }
+                            }
+                        </td>
+                        <td>@(r?.Fetched)</td>
+                        <td>@(r?.Valid)</td>
+                        <td>@(r?.Skipped)</td>
+                        <td>@(r?.Added)</td>
+                        <td>@(r?.Removed)</td>
+                        <td>@(r is null ? "" : Format.Ago(r.StartedUtc, DateTime.UtcNow))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<BlocklistSourceOptions>? _sources;
+    private IReadOnlyList<SyncResult> _results = [];
+    private bool _busy;
+    private string? _message;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    private async Task RefreshAsync() => (_sources, _results) = await Dash.GetSyncStatusAsync();
+
+    private async Task RunAsync(bool dryRun)
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var results = await Dash.SyncNowAsync(dryRun);
+            _message = dryRun
+                ? "Preview only, nothing was changed: " + string.Join("; ", results.Select(r => $"{r.Source}: +{r.Added} / -{r.Removed} ({r.Status})"))
+                : "Sync finished.";
+            if (results.Count == 0)
+            {
+                _message = "No enabled sources.";
+            }
+
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string StatusClass(SyncResult r) =>
+        r.Status is SyncStatus.Ok or SyncStatus.NotModified ? "good" : r.Status == SyncStatus.Refused ? "warn" : "bad";
+
+    private static string StatusIcon(SyncResult r) =>
+        r.Status is SyncStatus.Ok or SyncStatus.NotModified ? "●" : r.Status == SyncStatus.Refused ? "▲" : "✕";
+}

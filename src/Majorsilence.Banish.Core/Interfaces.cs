@@ -64,6 +64,12 @@ public interface IBanStore
     /// </summary>
     Task<Ban> AddAsync(Ban ban, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Adds many bans at once (blocklist import), skipping addresses that are already actively
+    /// banned. No per-ban audit event is written. Returns the number added.
+    /// </summary>
+    Task<int> AddRangeAsync(IReadOnlyCollection<Ban> bans, CancellationToken cancellationToken);
+
     /// <summary>Lifts every active ban for an address or CIDR. Returns the number lifted.</summary>
     Task<int> RemoveAsync(string address, string removedBy, CancellationToken cancellationToken);
 
@@ -90,4 +96,39 @@ public interface IBanStore
     Task<bool> RemoveAllowAsync(string address, CancellationToken cancellationToken);
 
     Task HeartbeatAsync(AgentInfo agent, CancellationToken cancellationToken);
+}
+
+/// <summary>Outcome of refreshing one blocklist source.</summary>
+public sealed record SyncResult(
+    string Source,
+    DateTime StartedUtc,
+    string Status,
+    int Fetched,
+    int Valid,
+    int Skipped,
+    int Added,
+    int Removed,
+    string? Message);
+
+public static class SyncStatus
+{
+    public const string Ok = "ok";
+    public const string DryRun = "dry-run";
+    public const string NotModified = "not-modified";
+
+    /// <summary>The download looked wrong (empty, or would remove too much), so nothing was changed.</summary>
+    public const string Refused = "refused";
+
+    public const string Error = "error";
+}
+
+/// <summary>Downloads configured blocklists and keeps their bans in the store up to date.</summary>
+public interface IBlocklistSync
+{
+    IReadOnlyList<BlocklistSourceOptions> Sources { get; }
+
+    /// <summary>The latest result for each source that has been synced since startup.</summary>
+    IReadOnlyList<SyncResult> LastResults { get; }
+
+    Task<IReadOnlyList<SyncResult>> RunAllAsync(bool dryRun, CancellationToken cancellationToken);
 }

@@ -9,6 +9,7 @@
     <Project Path="src/Majorsilence.Banish.Firewall/Majorsilence.Banish.Firewall.csproj" />
     <Project Path="src/Majorsilence.Banish.Hosting/Majorsilence.Banish.Hosting.csproj" />
     <Project Path="src/Majorsilence.Banish.Store.Api/Majorsilence.Banish.Store.Api.csproj" />
+    <Project Path="src/Majorsilence.Banish.Sync/Majorsilence.Banish.Sync.csproj" />
     <Project Path="src/Majorsilence.Banish.Store.Ef/Majorsilence.Banish.Store.Ef.csproj" />
   </Folder>
   <Folder Name="/tests/">

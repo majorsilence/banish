@@ -156,6 +156,41 @@ public static class ApiEndpoints
             return Results.Ok(new CountResponse(await store.RemoveAsync(normalized, by, ct)));
         });
 
+        admin.MapGet("/sync", (IBlocklistSync sync) =>
+            Results.Ok(new
+            {
+                sources = sync.Sources.Select(s => new { s.Name, s.Url, s.Enabled, s.Format, s.IntervalMinutes }),
+                results = sync.LastResults,
+            }));
+
+        admin.MapPost("/sync/run", async (bool? dryRun, IBlocklistSync sync, CancellationToken ct) =>
+            Results.Ok(await sync.RunAllAsync(dryRun ?? false, ct)));
+
+        admin.MapPost("/bans/bulk", async (List<Ban> bans, ClaimsPrincipal user, IBanStore store, TimeProvider time, CancellationToken ct) =>
+        {
+            if (bans.Count > 5000)
+            {
+                return Results.BadRequest(new { error = "At most 5000 bans per request." });
+            }
+
+            var now = time.GetUtcNow().UtcDateTime;
+            var valid = new List<Ban>(bans.Count);
+            foreach (var ban in bans)
+            {
+                if (IpAddressUtil.TryParseNetwork(ban.Address, out var network) && IpAddressUtil.IsBannable(network))
+                {
+                    ban.Address = IpAddressUtil.Format(network);
+                    ban.CreatedUtc = now;
+                    ban.RemovedUtc = null;
+                    ban.CreatedBy ??= user.Identity!.Name;
+                    ban.Source = string.IsNullOrWhiteSpace(ban.Source) ? BanSources.Manual : ban.Source;
+                    valid.Add(ban);
+                }
+            }
+
+            return Results.Ok(new CountResponse(await store.AddRangeAsync(valid, ct)));
+        });
+
         admin.MapPost("/bans/remove-by-source", async (RemoveBySourceRequest request, ClaimsPrincipal user, IBanStore store, CancellationToken ct) =>
             Results.Ok(new CountResponse(await store.RemoveBySourceAsync(request.Source, request.Except, request.Actor ?? user.Identity!.Name!, ct))));
 

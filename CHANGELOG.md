@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **M6 – blocklist sync**
+  - `Sync:Sources` downloads public lists (plain, CSV or JSON) on a schedule, from the agent or the API host;
+    `banish sync [--dry-run]` runs them once; admins can sync or preview from the dashboard's Blocklists page
+    (`GET /api/v1/sync`, `POST /api/v1/sync/run`).
+  - New entries are added in bulk (`IBanStore.AddRangeAsync`, `POST /api/v1/bans/bulk`); entries that left
+    the list are lifted. Tried live against Spamhaus DROP, FireHOL level 1 and abuse.ch Feodo.
+  - Guard rails: HTTPS only, allow-listed/private ranges skipped, empty or mass-removal refreshes refused,
+    32 MB / `MaxEntries` caps, conditional requests.
 - **M5 – dashboard** (Blazor Server, served by `banish-api` at `/`)
   - **Viewer mode**: tiles (active, last 24 h, permanent, all-time), new bans per day, bans by rule /
     source / machine, most active offenders, agent health (online/slow/offline with icon and label),

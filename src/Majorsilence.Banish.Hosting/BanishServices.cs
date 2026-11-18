@@ -1,6 +1,7 @@
 using Majorsilence.Banish.Core;
 using Majorsilence.Banish.Firewall;
 using Majorsilence.Banish.Store.Api;
+using Majorsilence.Banish.Sync;
 using Majorsilence.Banish.Store.Ef;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -55,6 +56,7 @@ public static class BanishServices
             sp.GetRequiredService<IFirewall>(),
             () => sp.GetRequiredService<AllowlistProvider>().Current,
             sp.GetRequiredService<ILoggerFactory>().CreateLogger("Reconciler")));
+        services.AddBanishSync(options, runInBackground: true);
         services.AddHostedService<StoreInitializer>();
         services.AddHostedService<DetectorService>();
         services.AddHostedService<ReconcileService>();

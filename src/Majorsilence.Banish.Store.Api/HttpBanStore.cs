@@ -30,6 +30,18 @@ public sealed class HttpBanStore : IBanStore
         await SendAsync<Ban>(HttpMethod.Post, "api/v1/bans", ban, cancellationToken).ConfigureAwait(false)
         ?? throw new BanishApiException(HttpStatusCode.NoContent, "empty response");
 
+    public async Task<int> AddRangeAsync(IReadOnlyCollection<Ban> bans, CancellationToken cancellationToken)
+    {
+        int added = 0;
+        foreach (var chunk in bans.Chunk(2000))
+        {
+            var result = await SendAsync<CountResponse>(HttpMethod.Post, "api/v1/bans/bulk", chunk, cancellationToken).ConfigureAwait(false);
+            added += result?.Count ?? 0;
+        }
+
+        return added;
+    }
+
     public async Task<int> RemoveAsync(string address, string removedBy, CancellationToken cancellationToken)
     {
         var result = await SendAsync<CountResponse>(

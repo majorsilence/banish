@@ -14,8 +14,11 @@ public sealed class DashboardService
     private readonly BanishOptions _options;
     private readonly AllowlistProvider _allowlist;
 
-    public DashboardService(IBanStore store, AuthenticationStateProvider auth, BanishOptions options, AllowlistProvider allowlist)
+    private readonly IBlocklistSync? _sync;
+
+    public DashboardService(IBanStore store, AuthenticationStateProvider auth, BanishOptions options, AllowlistProvider allowlist, IBlocklistSync? sync = null)
     {
+        _sync = sync;
         _store = store;
         _auth = auth;
         _options = options;
@@ -124,5 +127,17 @@ public sealed class DashboardService
     {
         await RequireAdminAsync().ConfigureAwait(false);
         await _store.RemoveAllowAsync(address, ct).ConfigureAwait(false);
+    }
+
+    public async Task<(IReadOnlyList<BlocklistSourceOptions> Sources, IReadOnlyList<SyncResult> Results)> GetSyncStatusAsync()
+    {
+        await RequireAdminAsync().ConfigureAwait(false);
+        return _sync is null ? ([], []) : (_sync.Sources, _sync.LastResults);
+    }
+
+    public async Task<IReadOnlyList<SyncResult>> SyncNowAsync(bool dryRun, CancellationToken ct = default)
+    {
+        await RequireAdminAsync().ConfigureAwait(false);
+        return _sync is null ? [] : await _sync.RunAllAsync(dryRun, ct).ConfigureAwait(false);
     }
 }

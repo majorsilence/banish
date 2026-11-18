@@ -2,6 +2,7 @@ using Majorsilence.Banish.Core;
 using Majorsilence.Banish.Dashboard;
 using Majorsilence.Banish.Hosting;
 using Majorsilence.Banish.Store.Ef;
+using Majorsilence.Banish.Sync;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -44,6 +45,7 @@ public static class ApiHost
             () => sp.GetRequiredService<AllowlistProvider>().Current,
             options.MachineName,
             logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("Engine")));
+        services.AddBanishSync(options, runInBackground: true);
         services.AddHostedService<StoreInitializer>();
 
         bool oidc = options.Auth.Mode.Equals(AuthModes.Oidc, StringComparison.OrdinalIgnoreCase);

@@ -150,6 +150,18 @@ public abstract class StoreContractTests
     }
 
     [Test]
+    public async Task BulkAddSkipsActiveAddressesAndIsVisibleToOtherAgents()
+    {
+        await A.AddAsync(NewBan("203.0.113.1", null), default);
+        var bans = Enumerable.Range(1, 1200).Select(i => NewBan($"198.51.{i / 250}.{i % 250 + 1}", null, "blocklist:big")).ToList();
+        bans.Add(NewBan("203.0.113.1", null, "blocklist:big"));
+
+        Assert.That(await A.AddRangeAsync(bans, default), Is.EqualTo(1200));
+        Assert.That((await B.GetActiveAsync(default)).Count, Is.EqualTo(1201));
+        Assert.That(await B.AddRangeAsync(bans, default), Is.EqualTo(0), "idempotent");
+    }
+
+    [Test]
     public async Task BlocklistRefreshRemovesDroppedEntries()
     {
         await A.AddAsync(NewBan("203.0.113.1", null, "blocklist:x"), default);

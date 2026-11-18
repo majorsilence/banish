@@ -52,6 +52,35 @@ Any setting can also be set with `BANISH__Section__Key` environment variables. E
 Without `Rules`, sensible defaults for the current OS are used (sshd on Linux/macOS, failed
 logons - event 4625 - on Windows).
 
+## Blocklist sync
+
+Banish can import public IP blocklists on a schedule. Add sources under `Sync:Sources`; they run
+in the agent, or in `banish-api` for a shared store (configure them on **one** node only). Try one
+with `banish sync --dry-run`.
+
+```json
+{
+  "Sync": {
+    "Sources": [
+      { "Name": "spamhaus-drop", "Url": "https://www.spamhaus.org/drop/drop.txt", "Format": "plain", "IntervalMinutes": 720 },
+      { "Name": "feodo", "Url": "https://feodotracker.abuse.ch/downloads/ipblocklist.txt", "Format": "plain" },
+      { "Name": "firehol-level1", "Url": "https://iplists.firehol.org/files/firehol_level1.netset", "Format": "plain" }
+    ]
+  }
+}
+```
+
+Formats: `plain` (first token per line, `#`/`;` comments), `csv` (first column) and `json` (an array, or
+one JSON value per line, as strings or objects with a `cidr`/`ip`/`address` field).
+Those URLs were reachable when this was written; check each list's current location and terms of use
+before relying on it.
+
+Safety: HTTPS only (unless `AllowInsecureHttp`), allow-listed and private addresses are never
+imported, a download that is empty or would lift more than `MaxRemovalPercent` (50) of the source's
+entries changes nothing, downloads are capped at 32 MB and `MaxEntries`, and unchanged lists are
+not re-processed (ETag / If-Modified-Since). Entries are bans with source `blocklist:<name>` that
+are lifted when they leave the list; admins can run a refresh from the dashboard's Blocklists page.
+
 ## License
 
 Tri-licensed under your choice of MIT, Apache 2.0, or BSD 3-Clause.

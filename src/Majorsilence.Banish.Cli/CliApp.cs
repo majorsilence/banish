@@ -80,7 +80,7 @@ public static class CliApp
                 "allow" => await AllowAsync(store, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "user" => await UserAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "apikey" => await ApiKeyAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
-                "sync" => await SyncCommand.RunAsync(store, options, parsed.Flag("dry-run"), output, error, cancellationToken).ConfigureAwait(false),
+                "sync" => await SyncCommand.RunAsync(options, parsed.Flag("dry-run"), output, error, cancellationToken).ConfigureAwait(false),
                 _ => await UnknownAsync(command, error).ConfigureAwait(false),
             };
         }

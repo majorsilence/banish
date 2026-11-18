@@ -117,11 +117,20 @@ public sealed class BlocklistSourceOptions
     public string Url { get; set; } = "";
     public bool Enabled { get; set; } = true;
 
-    /// <summary>plain (one IP/CIDR per line, # or ; comments), csv (first column) or json (array of strings).</summary>
+    /// <summary>
+    /// plain (first token of each line; # and ; start comments), csv (first column), or json (an array
+    /// or one-per-line values, each a string or an object with a cidr/ip/address field).
+    /// </summary>
     public string Format { get; set; } = "plain";
 
     public int IntervalMinutes { get; set; } = 360;
     public int MaxEntries { get; set; } = 200_000;
+
+    /// <summary>
+    /// A refresh that would drop more than this share of the source's current entries (once there are
+    /// at least 100) is refused, so a truncated download cannot wipe the list.
+    /// </summary>
+    public int MaxRemovalPercent { get; set; } = 50;
     public bool AllowInsecureHttp { get; set; }
     public Dictionary<string, string> Headers { get; set; } = [];
 }
