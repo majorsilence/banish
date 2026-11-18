@@ -14,7 +14,13 @@ behaviour, blocks the offending IP addresses in the host firewall, and records e
 See [PLAN.md](PLAN.md) for the design, [CHANGELOG.md](CHANGELOG.md) for progress, and
 [BACKLOG.md](BACKLOG.md) for accepted-but-unscheduled work.
 
-## Quick start (Linux)
+## Install
+
+Download the archive for your platform from the GitHub releases page and see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (topologies, services, firewall tools, dashboard sign-in, HTTPS).
+Short version: `banish config init && sudo banish install`.
+
+## Quick start from source (Linux)
 
 ```sh
 dotnet publish src/Majorsilence.Banish.Agent -c Release -o /opt/banish

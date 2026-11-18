@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **M7 – packaging and release**
+  - `banish install [--api]` / `uninstall` register a systemd unit (the API unit runs as a dynamic user with no
+    capabilities), a launchd daemon or a Windows service; `banish config init` writes an annotated sample.
+  - `banish-api` runs as a Windows service or under systemd; `--healthcheck` for containers.
+  - Release workflow: self-contained, compressed single-file binaries for linux/win/osx x64+arm64 with checksums,
+    a GitHub release, and a GHCR image for the API. `Dockerfile` and `docker-compose.example.yml` (API + PostgreSQL).
+  - The API persists its sign-in key ring in the data directory (`Api:KeyDirectory`), so restarts keep sessions.
+  - Verified: self-contained single-file `banish`, `banish-agent` and `banish-api` (linux-x64) run; the Docker image builds and serves the dashboard, health check and bundled CLI.
+  - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and a status/deviations section in PLAN.md.
 - **M6 – blocklist sync**
   - `Sync:Sources` downloads public lists (plain, CSV or JSON) on a schedule, from the agent or the API host;
     `banish sync [--dry-run]` runs them once; admins can sync or preview from the dashboard's Blocklists page

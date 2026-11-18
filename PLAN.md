@@ -1,5 +1,7 @@
 # Banish – Implementation Plan
 
+> **Status: all seven milestones are implemented.** See [Status and deviations](#status-and-deviations) at the end for what was built differently from this plan and what is not done.
+
 Banish is a cross-platform (Windows, Linux, macOS) intrusion-prevention agent in C#/.NET, in the spirit of fail2ban and IPBan. It watches logs and event sources for failed logins and abusive behaviour, bans offending IPs at the host firewall, and shares bans through a central store.
 
 ## 1. What fail2ban and IPBan do (from public docs only)
@@ -137,3 +139,23 @@ Versioned `/api/v1`:
 ## 15. Backlog
 
 - GeoIP maps: optional, off by default, not scheduled. See [BACKLOG.md](BACKLOG.md).
+
+## Status and deviations
+
+All milestones M1–M7 are implemented and pushed; the test suite is 154 unit/HTTP tests plus 33 container tests
+(real PostgreSQL 18, SQL Server 2022 and MySQL 8.4). Where the build differs from the plan above:
+
+| Plan | What was built |
+|---|---|
+| Projects `Banish.*` / separate `Store` project | `Majorsilence.Banish.*`; the `IBanStore` interface lives in `Core`. Added `Hosting` (composition), `Sync` and `Dashboard` (Razor class library). |
+| Per-provider EF migrations | `EnsureCreated` for every provider (safe when agents start together). Real migrations are on the backlog. |
+| firewalld provider | Not needed: the nftables provider coexists with firewalld/ufw. |
+| `Failures` table, `HttpReport` detector | No failures table. Apps report failures to `POST /api/v1/failures`; the API's engine counts them for rules with `"Detector": "Http"`. |
+| Blocklist sources CRUD in the admin UI, `ExpireAfter` | Sources are configuration only (the dashboard shows status and runs "sync now"); imported entries are permanent while listed and lifted when they leave the list. |
+| Auto-allow the current admin session's IP | Replaced by: never ban private ranges, loopback or the machine's own addresses; `banish ban` and the dashboard refuse allow-listed targets unless forced. |
+| Admin keys / user accounts | API keys are hashed (`agent`/`admin`); dashboard users are local (default) or OIDC. |
+| Packaging: MSI, `.deb`/`.rpm`, Homebrew, winget, NuGet, SBOM/signing | Not done. Delivered: self-contained single-file binaries per OS/arch in GitHub releases, `banish install` for systemd / launchd / Windows services, a Dockerfile and compose example for the API. See BACKLOG.md. |
+| GeoIP | Backlog, as agreed. |
+
+Not yet run on real hardware: the Windows Firewall, Windows Event Log, macOS `pf`/launchd code and the OIDC
+sign-in redirect (they are implemented and their generated commands/config are tested).

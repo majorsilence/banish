@@ -1,0 +1,97 @@
+name: release
+
+# Tag a version (git tag v0.1.0 && git push --tags) to build self-contained binaries for every
+# platform, attach them to a GitHub release and publish the API container image.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test tests/Majorsilence.Banish.Tests -c Release
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64, win-x64, win-arm64, osx-x64, osx-arm64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="banish-${VERSION}-${{ matrix.rid }}"
+          OUT="dist/${NAME}"
+          for project in Cli Agent Api; do
+            dotnet publish "src/Majorsilence.Banish.${project}" -c Release -r "${{ matrix.rid }}" --self-contained \
+              -p:Version="${VERSION}" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:EnableCompressionInSingleFile=true -p:DebugType=none -o "${OUT}"
+          done
+          cp LICENSE README.md CHANGELOG.md "${OUT}/"
+          cp -r docs "${OUT}/docs"
+          cd dist
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            zip -r "${NAME}.zip" "${NAME}"
+          else
+            tar -czf "${NAME}.tar.gz" "${NAME}"
+          fi
+          sha256sum "${NAME}".* > "${NAME}.sha256"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: banish-${{ matrix.rid }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --generate-notes --title "Banish ${GITHUB_REF_NAME}"
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-api:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}-api:latest

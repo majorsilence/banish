@@ -1,5 +1,6 @@
 using Majorsilence.Banish.Core;
 using Majorsilence.Banish.Detectors;
+using Majorsilence.Banish.Firewall;
 using Majorsilence.Banish.Store.Ef;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -143,6 +144,22 @@ public sealed class ReconcileService : BackgroundService
     {
         var interval = TimeSpan.FromSeconds(Math.Max(2, _options.Reconcile.IntervalSeconds));
         _logger.LogInformation("Firewall provider: {Firewall}; reconciling every {Interval}", _firewall.Name, interval);
+        if (_firewall is PfFirewall pf)
+        {
+            try
+            {
+                if (!await pf.IsAnchorReferencedAsync(stoppingToken).ConfigureAwait(false))
+                {
+                    _logger.LogWarning(
+                        "The pf ruleset does not reference the 'banish' anchor, so bans will not block anything. Add the line  anchor \"banish\"  to /etc/pf.conf and run: sudo pfctl -f /etc/pf.conf");
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Could not check the pf ruleset for the 'banish' anchor");
+            }
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

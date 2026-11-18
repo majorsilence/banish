@@ -4,6 +4,7 @@ using Majorsilence.Banish.Hosting;
 using Majorsilence.Banish.Store.Ef;
 using Majorsilence.Banish.Sync;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,17 @@ public static class ApiHost
         builder.WebHost.UseUrls(options.Api.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
         var services = builder.Services;
+        // Keep the keys that protect sign-in cookies and antiforgery tokens with the data, so a restart
+        // (or a new container) does not sign everyone out. Falls back to the framework default if the
+        // directory cannot be created or written.
+        string keyDirectory = options.Api.KeyDirectory ?? Path.Combine(EfStoreRegistration.DefaultDataDirectory(), "keys");
+        if (TryPrepareDirectory(keyDirectory))
+        {
+            services.AddDataProtection().SetApplicationName("Banish").PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
+        }
+
+        services.AddWindowsService(o => o.ServiceName = "BanishApi");
+        services.AddSystemd();
         services.AddBanishStore(options);
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new AllowlistProvider(options.Allowlist));
@@ -99,5 +111,21 @@ public static class ApiHost
         }
 
         return app;
+    }
+
+    private static bool TryPrepareDirectory(string directory)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            string probe = Path.Combine(directory, ".write-test");
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }

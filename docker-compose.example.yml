@@ -1,0 +1,24 @@
+# A central Banish API + dashboard backed by PostgreSQL.
+#   1. cp docker-compose.example.yml docker-compose.yml and change the passwords
+#   2. docker compose up -d
+#   3. docker compose exec api dotnet /app/cli/banish.dll user create admin --role admin
+#   4. docker compose exec api dotnet /app/cli/banish.dll apikey create web-01 --role agent
+# Put an HTTPS reverse proxy in front of port 5380 before exposing it beyond localhost.
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: banish
+      POSTGRES_USER: banish
+      POSTGRES_PASSWORD: change-me
+    volumes: [db-data:/var/lib/postgresql]
+  api:
+    build: .
+    depends_on: [db]
+    ports: ["127.0.0.1:5380:5380"]
+    environment:
+      BANISH__Store__Provider: PostgreSql
+      BANISH__Store__ConnectionString: Host=db;Database=banish;Username=banish;Password=change-me
+      BANISH__Dashboard__PublicReadOnly: "false"
+volumes:
+  db-data:

@@ -104,6 +104,9 @@ public sealed class ApiOptions
 {
     /// <summary>Listen URLs of the Web API host.</summary>
     public string Urls { get; set; } = "http://127.0.0.1:5380";
+
+    /// <summary>Where sign-in cookie and antiforgery keys are kept; defaults to <c>keys</c> inside the data directory.</summary>
+    public string? KeyDirectory { get; set; }
 }
 
 public sealed class SyncOptions

@@ -29,7 +29,11 @@ public static class CliApp
           apikey create <name> [--role agent|admin] | list | revoke <name>
                                           Manage Web API keys (run where the central database is reachable)
           sync [--dry-run]                Refresh blocklists now
-          config path | show              Show the configuration file location / effective settings
+          config path | show | init [--force]
+                                          Show the configuration file location / effective settings / write a sample
+          install [--api] [--config <file>] [--no-start]
+                                          Register the agent (or, with --api, the API and dashboard) as a service
+          uninstall [--api]               Remove the service
           help                            Show this help
         """;
 
@@ -62,6 +66,9 @@ public static class CliApp
                     return await ConfigAsync(parsed, options, output).ConfigureAwait(false);
                 case "test-rule":
                     return await TestRuleAsync(parsed, options, output, error).ConfigureAwait(false);
+                case "install":
+                case "uninstall":
+                    return await ServiceCommandAsync(command, parsed, output, error, cancellationToken).ConfigureAwait(false);
             }
 
             await using var provider = new ServiceCollection().AddBanishStore(options).BuildServiceProvider();
@@ -210,6 +217,31 @@ public static class CliApp
         }
     }
 
+    private static async Task<int> ServiceCommandAsync(string command, ParsedArgs args, TextWriter output, TextWriter error, CancellationToken ct)
+    {
+        var kind = args.Flag("api") ? ServiceKind.Api : ServiceKind.Agent;
+        var installer = new ServiceInstaller(new Majorsilence.Banish.Firewall.ProcessRunner());
+        if (command == "uninstall")
+        {
+            var removed = await installer.UninstallAsync(kind, ct).ConfigureAwait(false);
+            await (removed.Success ? output : error).WriteLineAsync(removed.Message).ConfigureAwait(false);
+            return removed.Success ? 0 : 1;
+        }
+
+        string config = Path.GetFullPath(args.Option("config") ?? Environment.GetEnvironmentVariable(BanishConfig.ConfigEnvironmentVariable) ?? BanishConfig.DefaultConfigPath());
+        if (!File.Exists(config))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(config)!);
+            await File.WriteAllTextAsync(config, SampleConfig.Text + Environment.NewLine, ct).ConfigureAwait(false);
+            await output.WriteLineAsync($"Wrote a sample configuration to {config}.").ConfigureAwait(false);
+        }
+
+        string exe = ServiceInstaller.ExecutablePath(kind, AppContext.BaseDirectory);
+        var result = await installer.InstallAsync(kind, exe, config, !args.Flag("no-start"), ct).ConfigureAwait(false);
+        await (result.Success ? output : error).WriteLineAsync(result.Message).ConfigureAwait(false);
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> UnknownAsync(string command, TextWriter error)
     {
         await error.WriteLineAsync($"Unknown command '{command}'. Run 'banish help'.").ConfigureAwait(false);
@@ -227,6 +259,21 @@ public static class CliApp
             return 0;
         }
 
+        if (sub == "init")
+        {
+            string target = args.Option("config") ?? Environment.GetEnvironmentVariable(BanishConfig.ConfigEnvironmentVariable) ?? BanishConfig.DefaultConfigPath();
+            if (File.Exists(target) && !args.Flag("force"))
+            {
+                await output.WriteLineAsync($"{target} already exists; use --force to overwrite it.").ConfigureAwait(false);
+                return 1;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
+            await File.WriteAllTextAsync(target, SampleConfig.Text + Environment.NewLine).ConfigureAwait(false);
+            await output.WriteLineAsync($"Wrote {target}. Edit it, then run 'banish install'.").ConfigureAwait(false);
+            return 0;
+        }
+
         if (sub == "show")
         {
             var redacted = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
@@ -237,7 +284,7 @@ public static class CliApp
             return 0;
         }
 
-        await output.WriteLineAsync("Usage: banish config path|show").ConfigureAwait(false);
+        await output.WriteLineAsync("Usage: banish config path|show|init").ConfigureAwait(false);
         return 2;
     }
 
@@ -423,7 +470,7 @@ public static class CliApp
 /// <summary>Minimal argument parser: positional arguments, <c>--name value</c> options and <c>--flag</c>s.</summary>
 public sealed class ParsedArgs
 {
-    private static readonly HashSet<string> Flags = ["all", "removed", "expired", "force", "dry-run", "password-stdin"];
+    private static readonly HashSet<string> Flags = ["all", "removed", "expired", "force", "dry-run", "password-stdin", "api", "no-start"];
     private readonly Dictionary<string, string> _options = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _flags = new(StringComparer.OrdinalIgnoreCase);
 

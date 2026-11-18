@@ -1,0 +1,41 @@
+namespace Majorsilence.Banish.Cli;
+
+public static class SampleConfig
+{
+    /// <summary>An annotated starting point; every value shown is the default, so the file changes nothing until edited.</summary>
+    public const string Text = """
+        {
+          // Where bans are kept. Sqlite (default, one file per machine), PostgreSql, SqlServer, MySql,
+          // or Api (use a central Banish API; needs ApiUrl and ApiKey).
+          "Store": {
+            "Provider": "Sqlite"
+            // "ConnectionString": "Host=db.example.com;Database=banish;Username=banish;Password=..."
+            // "ApiUrl": "https://banish.example.com", "ApiKey": "bnk_..."
+          },
+
+          // Auto picks nftables / iptables+ipset (Linux), pf (macOS) or Windows Firewall.
+          // Use DryRun to only log what would be blocked.
+          "Firewall": { "Provider": "Auto" },
+
+          // Addresses that are never banned. Private ranges, loopback and this machine's own addresses
+          // are protected too (turn the private ranges off with IncludePrivateRanges).
+          "Allowlist": { "Entries": [], "IncludePrivateRanges": true },
+
+          // How often the firewall is brought in line with the shared store.
+          "Reconcile": { "IntervalSeconds": 15 },
+
+          // Without "Rules", defaults for this OS are used (sshd on Linux/macOS, failed logons on Windows).
+          // "Rules": [ { "Name": "sshd", "Detector": "LogFile", "Paths": [ "/var/log/auth.log" ],
+          //              "Patterns": [ "Failed \\S+ for .* from (?<ip>\\S+) port" ],
+          //              "MaxRetry": 5, "FindTimeSeconds": 600, "BanMinutes": [ 10, 60, 1440, 10080 ] } ],
+
+          // Public blocklists to import (see the README).
+          "Sync": { "Sources": [] },
+
+          // banish-api only: listen address, dashboard options and sign-in.
+          "Api": { "Urls": "http://127.0.0.1:5380" },
+          "Dashboard": { "PublicReadOnly": false, "MaskIps": true },
+          "Auth": { "Mode": "Local" }
+        }
+        """;
+}
