@@ -29,7 +29,11 @@ public static class ApiHost
             throw new InvalidOperationException("Auth:Mode is Oidc, so Auth:Oidc:Authority and Auth:Oidc:ClientId are required.");
         }
 
-        var builder = WebApplication.CreateBuilder(args);
+        // A published build keeps its static files (wwwroot, including the Blazor script) next to the executable.
+        // The default content root is the current directory, which is wrong whenever the API is started from
+        // somewhere else (a shortcut, a scheduled task, a shell in another folder).
+        string? installDirectory = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot")) ? AppContext.BaseDirectory : null;
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = installDirectory });
         builder.WebHost.UseStaticWebAssets();
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
         builder.WebHost.UseUrls(options.Api.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));

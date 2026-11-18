@@ -147,12 +147,18 @@ public static class CliApp
         }
     }
 
+    /// <summary>
+    /// Removes what shells add around a piped password: Windows PowerShell 5.1 starts the stream with a UTF-8
+    /// byte order mark (which would silently become part of the password) and ends lines with CR LF.
+    /// </summary>
+    public static string CleanPasswordLine(string? line) => (line ?? "").TrimStart('﻿').TrimEnd('\r', '\n');
+
     /// <summary>Reads a password from stdin (<c>--password-stdin</c>, for scripts) or prompts without echo.</summary>
     private static string ReadPassword(ParsedArgs args, string prompt)
     {
         if (args.Flag("password-stdin") || Console.IsInputRedirected)
         {
-            return Console.In.ReadLine() ?? "";
+            return CleanPasswordLine(Console.In.ReadLine());
         }
 
         Console.Error.Write(prompt);

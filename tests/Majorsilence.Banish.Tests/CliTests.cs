@@ -25,6 +25,13 @@ public class CliTests
         Directory.Delete(_dir, true);
     }
 
+    [TestCase("secret-password", "secret-password")]
+    [TestCase("﻿secret-password\r", "secret-password", Description = "Windows PowerShell 5.1 pipes a BOM and CRLF")]
+    [TestCase("﻿secret-password", "secret-password")]
+    [TestCase(null, "")]
+    public void PipedPasswordsLoseShellArtifacts(string? line, string expected) =>
+        Assert.That(CliApp.CleanPasswordLine(line), Is.EqualTo(expected));
+
     private async Task<(int Code, string Out, string Err)> Run(params string[] args)
     {
         var o = new StringWriter();
