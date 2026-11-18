@@ -8,7 +8,7 @@ namespace Majorsilence.Banish.Api;
 
 public static class ApiKeyDefaults
 {
-    public const string Scheme = "ApiKey";
+    public const string Scheme = Majorsilence.Banish.Core.AuthSchemes.ApiKey;
 }
 
 /// <summary>Authenticates <c>Authorization: Bearer bnk_...</c> (or <c>X-Api-Key</c>) against stored key hashes.</summary>

@@ -1,0 +1,81 @@
+@page "/allowlist"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = Policies.Admin)]
+@inject DashboardService Dash
+
+<PageTitle>Banish – Allow-list</PageTitle>
+<h1>Allow-list</h1>
+<p class="muted">Addresses that are never banned, on every machine that shares this store. Private ranges, loopback and each machine's own addresses are protected by configuration.</p>
+
+<section class="card" style="margin-bottom:16px">
+    <EditForm Model="_form" OnValidSubmit="AddAsync" FormName="allow" class="row">
+        <label>Address or CIDR<input @bind="_form.Address" placeholder="203.0.113.0/24" required autocomplete="off" /></label>
+        <label>Note<input @bind="_form.Note" placeholder="office network" /></label>
+        <button class="primary" type="submit">Add</button>
+    </EditForm>
+</section>
+
+@if (_message is not null)
+{
+    <div class="notice error" role="alert">@_message</div>
+}
+
+@if (_entries is null)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_entries.Count == 0)
+{
+    <p class="muted">The shared allow-list is empty.</p>
+}
+else
+{
+    <div class="scroll">
+        <table>
+            <thead><tr><th>Address</th><th>Note</th><th>Added by</th><th>Added</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var entry in _entries)
+                {
+                    <tr>
+                        <td class="addr">@entry.Address</td>
+                        <td>@entry.Note</td>
+                        <td>@entry.CreatedBy</td>
+                        <td>@Format.When(entry.CreatedUtc)</td>
+                        <td><button @onclick="() => RemoveAsync(entry)">Remove</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private sealed class AllowForm
+    {
+        public string Address { get; set; } = "";
+        public string? Note { get; set; }
+    }
+
+    private readonly AllowForm _form = new();
+    private IReadOnlyList<AllowEntry>? _entries;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync() => _entries = await Dash.GetAllowlistAsync();
+
+    private async Task AddAsync()
+    {
+        _message = await Dash.AddAllowAsync(_form.Address, _form.Note);
+        if (_message is null)
+        {
+            _form.Address = "";
+            _form.Note = null;
+            _entries = await Dash.GetAllowlistAsync();
+        }
+    }
+
+    private async Task RemoveAsync(AllowEntry entry)
+    {
+        await Dash.RemoveAllowAsync(entry.Address);
+        _entries = await Dash.GetAllowlistAsync();
+    }
+}

@@ -8,7 +8,7 @@ behaviour, blocks the offending IP addresses in the host firewall, and records e
 - **Per-machine by default**: a local SQLite database, zero configuration.
 - **Shared when you want it**: point many agents at one PostgreSQL / SQL Server / MySQL database
   (any EF Core provider), or at the Banish Web API. A ban made on one machine is applied by all.
-- **Dashboard**: a read-only statistics view and an admin view where bans can be added or lifted.
+- **Dashboard**: a read-only statistics view (optionally public, with addresses partly masked) and an admin view where bans can be added or lifted. Local accounts by default, OpenID Connect optionally.
 - **Blocklist sync**: periodically import public IP blocklists.
 
 See [PLAN.md](PLAN.md) for the design, [CHANGELOG.md](CHANGELOG.md) for progress, and

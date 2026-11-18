@@ -1,4 +1,5 @@
 using Majorsilence.Banish.Core;
+using Majorsilence.Banish.Dashboard;
 using Majorsilence.Banish.Hosting;
 using Majorsilence.Banish.Store.Ef;
 using Microsoft.AspNetCore.Authentication;
@@ -20,7 +21,14 @@ public static class ApiHost
                 "The Web API keeps the central registry, so Store:Provider must be Sqlite, PostgreSql, SqlServer or MySql (not Api).");
         }
 
+        if (options.Auth.Mode.Equals(AuthModes.Oidc, StringComparison.OrdinalIgnoreCase)
+            && (string.IsNullOrWhiteSpace(options.Auth.Oidc.Authority) || string.IsNullOrWhiteSpace(options.Auth.Oidc.ClientId)))
+        {
+            throw new InvalidOperationException("Auth:Mode is Oidc, so Auth:Oidc:Authority and Auth:Oidc:ClientId are required.");
+        }
+
         var builder = WebApplication.CreateBuilder(args);
+        builder.WebHost.UseStaticWebAssets();
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
         builder.WebHost.UseUrls(options.Api.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
@@ -38,16 +46,16 @@ public static class ApiHost
             logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("Engine")));
         services.AddHostedService<StoreInitializer>();
 
-        services.AddAuthentication(ApiKeyDefaults.Scheme)
-            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyDefaults.Scheme, _ => { });
-        services.AddAuthorizationBuilder()
-            .AddPolicy(Policies.Agent, p => p.RequireRole(ApiRoles.Agent, ApiRoles.Admin))
-            .AddPolicy(Policies.Admin, p => p.RequireRole(ApiRoles.Admin))
-            .AddPolicy(Policies.Viewer, p => p.RequireAssertion(ctx =>
-                options.Dashboard.PublicReadOnly || ctx.User.Identity?.IsAuthenticated == true));
+        bool oidc = options.Auth.Mode.Equals(AuthModes.Oidc, StringComparison.OrdinalIgnoreCase);
+        ApiAuth.Configure(services, options, oidc);
+        services.AddBanishDashboard();
 
         services.AddRateLimiter(o =>
         {
+            o.AddPolicy(DashboardSetup.LoginRateLimitPolicy, ctx =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
                 RateLimitPartition.GetFixedWindowLimiter(
@@ -64,7 +72,20 @@ public static class ApiHost
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseAntiforgery();
         ApiEndpoints.Map(app);
+        // The manifest is named after the API assembly (not the entry assembly, which differs when hosted by a test runner).
+        string manifest = Path.Combine(AppContext.BaseDirectory, typeof(ApiHost).Assembly.GetName().Name + ".staticwebassets.endpoints.json");
+        if (File.Exists(manifest))
+        {
+            app.MapStaticAssets(manifest);
+        }
+        else
+        {
+            app.Logger.LogWarning("Static asset manifest {Manifest} not found; the interactive dashboard cannot load its script.", manifest);
+        }
+
+        app.MapBanishDashboard(options);
 
         foreach (string url in options.Api.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

@@ -12,6 +12,42 @@ public sealed class BanishOptions
     public SyncOptions Sync { get; set; } = new();
     public ApiOptions Api { get; set; } = new();
     public DashboardOptions Dashboard { get; set; } = new();
+    public AuthOptions Auth { get; set; } = new();
+}
+
+public static class AuthModes
+{
+    public const string Local = "Local";
+    public const string Oidc = "Oidc";
+}
+
+public sealed class AuthOptions
+{
+    /// <summary>Local (default; accounts kept in the store) or Oidc (an external OpenID Connect provider). One mode is active at a time.</summary>
+    public string Mode { get; set; } = AuthModes.Local;
+
+    public OidcOptions Oidc { get; set; } = new();
+}
+
+public sealed class OidcOptions
+{
+    public string? Authority { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+
+    /// <summary>Extra scopes; <c>openid</c> and <c>profile</c> are always requested.</summary>
+    public List<string> Scopes { get; set; } = [];
+
+    /// <summary>Claim holding the user's roles or groups.</summary>
+    public string RoleClaim { get; set; } = "roles";
+
+    /// <summary>Values of <see cref="RoleClaim"/> that grant the Admin role.</summary>
+    public List<string> AdminRoles { get; set; } = [];
+
+    /// <summary>Values of <see cref="RoleClaim"/> that grant read-only access.</summary>
+    public List<string> ViewerRoles { get; set; } = [];
+
+    public bool RequireHttpsMetadata { get; set; } = true;
 }
 
 public sealed class DashboardOptions

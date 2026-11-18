@@ -1,0 +1,37 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject BanishOptions Options
+
+<PageTitle>Banish – Sign in</PageTitle>
+<main class="login">
+    <h1>Sign in to Banish</h1>
+    @if (Error is not null)
+    {
+        <div class="notice error" role="alert">That did not work. Check your user name and password; repeated failures lock the account for a while.</div>
+    }
+
+    @if (Options.Auth.Mode.Equals(AuthModes.Oidc, StringComparison.OrdinalIgnoreCase))
+    {
+        <p><a href="/account/login?returnUrl=@Uri.EscapeDataString(DashboardSetup.SafeLocalUrl(ReturnUrl))">Sign in with your organization account</a></p>
+    }
+    else
+    {
+        <form method="post" action="/account/login">
+            <AntiforgeryToken />
+            <input type="hidden" name="returnUrl" value="@DashboardSetup.SafeLocalUrl(ReturnUrl)" />
+            <label>User name<input name="username" autocomplete="username" required autofocus /></label>
+            <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
+            <button class="primary" type="submit">Sign in</button>
+        </form>
+        @if (Options.Dashboard.PublicReadOnly)
+        {
+            <p class="muted"><a href="/">Continue to the read-only view</a></p>
+        }
+    }
+</main>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+}

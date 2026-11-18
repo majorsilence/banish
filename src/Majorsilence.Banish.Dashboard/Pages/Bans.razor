@@ -1,0 +1,191 @@
+@page "/bans"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = Policies.Viewer)]
+@inject DashboardService Dash
+
+<PageTitle>Banish – Bans</PageTitle>
+<h1>Bans</h1>
+
+<AuthorizeView Policy="@Policies.Admin">
+    <section class="card" style="margin-bottom:16px">
+        <h2>Ban an address</h2>
+        <EditForm Model="_form" OnValidSubmit="BanAsync" FormName="ban" class="row" Context="banForm">
+            <label>Address or CIDR<input @bind="_form.Address" placeholder="203.0.113.5 or 203.0.113.0/24" required autocomplete="off" /></label>
+            <label>Reason<input @bind="_form.Reason" placeholder="manual ban" /></label>
+            <label>Duration
+                <select @bind="_form.Duration">
+                    <option value="1h">1 hour</option>
+                    <option value="1d">1 day</option>
+                    <option value="7d">7 days</option>
+                    <option value="30d">30 days</option>
+                    <option value="permanent">Permanent</option>
+                </select>
+            </label>
+            <label class="check"><input type="checkbox" @bind="_form.Force" /> Ban anyway if allow-listed</label>
+            <button class="primary" type="submit">Ban</button>
+        </EditForm>
+    </section>
+</AuthorizeView>
+
+@if (_message is not null)
+{
+    <div class="notice @(_isError ? "error" : "")" role="status">@_message</div>
+}
+
+<form class="row" @onsubmit="SearchAsync" @onsubmit:preventDefault style="margin-bottom:12px">
+    <label>State
+        <select @bind="_state">
+            <option value="active">Active</option>
+            <option value="expired">Expired</option>
+            <option value="removed">Lifted</option>
+            <option value="all">All</option>
+        </select>
+    </label>
+    <label>Search<input @bind="_search" placeholder="address or reason" /></label>
+    <label>Source<input @bind="_source" placeholder="e.g. local, manual" /></label>
+    <label>Machine<input @bind="_machine" /></label>
+    <button type="submit">Filter</button>
+</form>
+
+@if (_page is null)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_page.Items.Count == 0)
+{
+    <p class="muted">No bans match.</p>
+}
+else
+{
+    <div class="scroll">
+        <table>
+            <thead><tr><th>Address</th><th>Status</th><th>Source</th><th>Rule</th><th>Machine</th><th>Hits</th><th>Banned</th><th>Reason</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var ban in _page.Items)
+                {
+                    <tr>
+                        <td class="addr">@ban.Address</td>
+                        <td>@Format.Expiry(ban, _now)</td>
+                        <td>@ban.Source</td>
+                        <td>@ban.RuleId</td>
+                        <td>@ban.MachineName</td>
+                        <td>@ban.Hits</td>
+                        <td>@Format.When(ban.CreatedUtc)</td>
+                        <td>@ban.Reason</td>
+                        <td>
+                            @if (ban.IsActive(_now))
+                            {
+                                <AuthorizeView Policy="@Policies.Admin">
+                                    @if (_confirm == ban.Id)
+                                    {
+                                        <button class="danger" @onclick="() => UnbanAsync(ban)">Confirm unban</button>
+                                        <button @onclick="() => _confirm = null">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button @onclick="() => _confirm = ban.Id">Unban</button>
+                                    }
+                                </AuthorizeView>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="pager">
+        <button disabled="@(_skip == 0)" @onclick="PrevAsync">Previous</button>
+        <span>@(_skip + 1)–@(_skip + _page.Items.Count) of @_page.Total.ToString("N0", CultureInfo.InvariantCulture)</span>
+        <button disabled="@(_skip + PageSize >= _page.Total)" @onclick="NextAsync">Next</button>
+    </div>
+}
+
+@code {
+    private const int PageSize = 25;
+
+    private sealed class BanForm
+    {
+        public string Address { get; set; } = "";
+        public string Reason { get; set; } = "";
+        public string Duration { get; set; } = "1d";
+        public bool Force { get; set; }
+    }
+
+    private readonly BanForm _form = new();
+    private PagedResult<Ban>? _page;
+    private string _state = "active";
+    private string? _search, _source, _machine;
+    private int _skip;
+    private Guid? _confirm;
+    private string? _message;
+    private bool _isError;
+    private DateTime _now = DateTime.UtcNow;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _now = DateTime.UtcNow;
+        _page = await Dash.QueryAsync(new BanQuery
+        {
+            State = _state,
+            Search = _search,
+            Source = string.IsNullOrWhiteSpace(_source) ? null : _source.Trim(),
+            MachineName = string.IsNullOrWhiteSpace(_machine) ? null : _machine.Trim(),
+            Skip = _skip,
+            Take = PageSize,
+        });
+    }
+
+    private async Task SearchAsync()
+    {
+        _skip = 0;
+        await LoadAsync();
+    }
+
+    private async Task NextAsync()
+    {
+        _skip += PageSize;
+        await LoadAsync();
+    }
+
+    private async Task PrevAsync()
+    {
+        _skip = Math.Max(0, _skip - PageSize);
+        await LoadAsync();
+    }
+
+    private async Task BanAsync()
+    {
+        TimeSpan? duration = _form.Duration switch
+        {
+            "1h" => TimeSpan.FromHours(1),
+            "1d" => TimeSpan.FromDays(1),
+            "7d" => TimeSpan.FromDays(7),
+            "30d" => TimeSpan.FromDays(30),
+            _ => null,
+        };
+
+        string? error = await Dash.BanAsync(_form.Address, _form.Reason, duration, _form.Force);
+        _isError = error is not null;
+        _message = error ?? $"Banned {_form.Address.Trim()}. Agents apply it within their reconcile interval.";
+        if (error is null)
+        {
+            _form.Address = "";
+            _form.Reason = "";
+            _form.Force = false;
+            _skip = 0;
+            await LoadAsync();
+        }
+    }
+
+    private async Task UnbanAsync(Ban ban)
+    {
+        // The list may show masked addresses to non-admins, but only admins can reach this button.
+        int count = await Dash.UnbanAsync(ban.Address);
+        _confirm = null;
+        _isError = count == 0;
+        _message = count == 0 ? $"{ban.Address} had no active ban." : $"Lifted the ban on {ban.Address}.";
+        await LoadAsync();
+    }
+}

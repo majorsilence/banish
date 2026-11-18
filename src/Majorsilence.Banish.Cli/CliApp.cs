@@ -24,6 +24,8 @@ public static class CliApp
           allow list | add <ip|cidr> [--note <text>] | remove <ip|cidr>
                                           Manage the shared allow-list
           test-rule <rule> <logfile>      Show what a rule would match in a log file
+          user create <name> [--role admin|viewer] [--password-stdin] | list | passwd <name> [--password-stdin] | delete <name>
+                                          Manage local dashboard accounts (run where the central database is reachable)
           apikey create <name> [--role agent|admin] | list | revoke <name>
                                           Manage Web API keys (run where the central database is reachable)
           sync [--dry-run]                Refresh blocklists now
@@ -76,6 +78,7 @@ public static class CliApp
                 "ban" => await BanAsync(store, options, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "unban" => await UnbanAsync(store, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "allow" => await AllowAsync(store, parsed, output, error, cancellationToken).ConfigureAwait(false),
+                "user" => await UserAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "apikey" => await ApiKeyAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "sync" => await SyncCommand.RunAsync(store, options, parsed.Flag("dry-run"), output, error, cancellationToken).ConfigureAwait(false),
                 _ => await UnknownAsync(command, error).ConfigureAwait(false),
@@ -86,6 +89,84 @@ public static class CliApp
             await error.WriteLineAsync($"Error: {ex.Message}").ConfigureAwait(false);
             return 1;
         }
+    }
+
+    private static async Task<int> UserAsync(IServiceProvider provider, ParsedArgs args, TextWriter output, TextWriter error, CancellationToken ct)
+    {
+        var users = provider.GetService<UserService>();
+        if (users is null)
+        {
+            await error.WriteLineAsync("Accounts are kept on the central database; run this command on the API host.").ConfigureAwait(false);
+            return 1;
+        }
+
+        string sub = args.Positional.Skip(1).FirstOrDefault() ?? "list";
+        string? name = args.Positional.Skip(2).FirstOrDefault();
+        switch (sub)
+        {
+            case "create" when name is not null:
+                var created = await users.CreateAsync(name, ReadPassword(args, $"Password for {name}: "), args.Option("role") ?? ApiRoles.Admin, ct).ConfigureAwait(false);
+                await output.WriteLineAsync($"Created {created.Role} '{created.UserName}'.").ConfigureAwait(false);
+                return 0;
+            case "list":
+                foreach (var u in await users.ListAsync(ct).ConfigureAwait(false))
+                {
+                    string locked = u.LockoutUntilUtc > DateTime.UtcNow ? "  LOCKED" : "";
+                    await output.WriteLineAsync($"{u.UserName,-32} {u.Role,-8} last login {(u.LastLoginUtc?.ToString("u") ?? "never")}{locked}").ConfigureAwait(false);
+                }
+
+                return 0;
+            case "passwd" when name is not null:
+                if (await users.SetPasswordAsync(name, ReadPassword(args, $"New password for {name}: "), ct).ConfigureAwait(false))
+                {
+                    await output.WriteLineAsync($"Password changed for '{name}'.").ConfigureAwait(false);
+                    return 0;
+                }
+
+                await error.WriteLineAsync($"No user named '{name}'.").ConfigureAwait(false);
+                return 1;
+            case "delete" when name is not null:
+                if (await users.DeleteAsync(name, ct).ConfigureAwait(false))
+                {
+                    await output.WriteLineAsync($"Deleted '{name}'.").ConfigureAwait(false);
+                    return 0;
+                }
+
+                await error.WriteLineAsync($"No user named '{name}'.").ConfigureAwait(false);
+                return 1;
+            default:
+                await error.WriteLineAsync("Usage: banish user create <name> [--role admin|viewer] [--password-stdin] | list | passwd <name> | delete <name>").ConfigureAwait(false);
+                return 2;
+        }
+    }
+
+    /// <summary>Reads a password from stdin (<c>--password-stdin</c>, for scripts) or prompts without echo.</summary>
+    private static string ReadPassword(ParsedArgs args, string prompt)
+    {
+        if (args.Flag("password-stdin") || Console.IsInputRedirected)
+        {
+            return Console.In.ReadLine() ?? "";
+        }
+
+        Console.Error.Write(prompt);
+        var sb = new StringBuilder();
+        while (Console.ReadKey(intercept: true) is { Key: not ConsoleKey.Enter } key)
+        {
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Length--;
+                }
+            }
+            else if (!char.IsControl(key.KeyChar))
+            {
+                sb.Append(key.KeyChar);
+            }
+        }
+
+        Console.Error.WriteLine();
+        return sb.ToString();
     }
 
     private static async Task<int> ApiKeyAsync(IServiceProvider provider, ParsedArgs args, TextWriter output, TextWriter error, CancellationToken ct)
@@ -342,7 +423,7 @@ public static class CliApp
 /// <summary>Minimal argument parser: positional arguments, <c>--name value</c> options and <c>--flag</c>s.</summary>
 public sealed class ParsedArgs
 {
-    private static readonly HashSet<string> Flags = ["all", "removed", "expired", "force", "dry-run"];
+    private static readonly HashSet<string> Flags = ["all", "removed", "expired", "force", "dry-run", "password-stdin"];
     private readonly Dictionary<string, string> _options = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _flags = new(StringComparer.OrdinalIgnoreCase);
 

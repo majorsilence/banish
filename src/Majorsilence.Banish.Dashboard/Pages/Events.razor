@@ -1,0 +1,44 @@
+@page "/events"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = Policies.Viewer)]
+@inject DashboardService Dash
+
+<PageTitle>Banish – Events</PageTitle>
+<h1>Events</h1>
+<p class="muted">The audit trail of bans, extensions and lifted bans, newest first.</p>
+
+@if (_events is null)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_events.Count == 0)
+{
+    <p class="muted">Nothing has happened yet.</p>
+}
+else
+{
+    <div class="scroll">
+        <table>
+            <thead><tr><th>When</th><th>Event</th><th>Address</th><th>By</th><th>Machine</th><th>Detail</th></tr></thead>
+            <tbody>
+                @foreach (var e in _events)
+                {
+                    <tr>
+                        <td>@Format.When(e.TimestampUtc)</td>
+                        <td><span class="kind">@e.Kind</span></td>
+                        <td class="addr">@e.Address</td>
+                        <td>@e.Actor</td>
+                        <td>@e.MachineName</td>
+                        <td>@e.Detail</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<BanEvent>? _events;
+
+    protected override async Task OnInitializedAsync() => _events = await Dash.GetEventsAsync(200);
+}

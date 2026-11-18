@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **M5 – dashboard** (Blazor Server, served by `banish-api` at `/`)
+  - **Viewer mode**: tiles (active, last 24 h, permanent, all-time), new bans per day, bans by rule /
+    source / machine, most active offenders, agent health (online/slow/offline with icon and label),
+    ban list with filters and paging, audit events. Charts follow the data-viz palette (light and dark),
+    each with a table view. `Dashboard:PublicReadOnly` shows it without signing in.
+  - **Admin mode**: ban an address or CIDR, unban (with confirmation), manage the shared allow-list.
+    Every write is re-checked on the server (`DashboardService`), not just hidden in the UI.
+  - `Dashboard:MaskIps` (default on) hides the host part of addresses (`203.0.113.x`) for everyone who
+    is not an admin, in the dashboard and in the API.
+  - **Sign-in**: local accounts by default (PBKDF2 hashes, 12-character minimum, lockout after 5
+    failures, antiforgery, per-IP rate limit, same-site return URLs only), created with
+    `banish user create`. `Auth:Mode = "Oidc"` switches to an OpenID Connect provider
+    (`Authority`, `ClientId`, `ClientSecret`, `RoleClaim`, `AdminRoles`, `ViewerRoles`); a user with
+    no matching role gets no access. The OIDC redirect flow itself has not been exercised against a live provider.
+  - `/api/blocklist.txt` now needs an agent or admin key so the unmasked list cannot leak through public mode.
 - **M4 – Web API**
   - `banish-api`: ASP.NET Core minimal API (`/api/v1`) in front of the central store, with
     hashed per-agent API keys (`banish apikey create|list|revoke`), `agent`/`admin` roles, rate limiting

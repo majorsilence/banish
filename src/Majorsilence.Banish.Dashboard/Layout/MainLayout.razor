@@ -1,0 +1,46 @@
+@inherits LayoutComponentBase
+@inject BanishOptions Options
+
+<div class="banish">
+    <header class="top">
+        <a class="brand" href="/">Banish</a>
+        <nav aria-label="Main">
+            <NavLink href="/" Match="NavLinkMatch.All">Overview</NavLink>
+            <NavLink href="/bans">Bans</NavLink>
+            <NavLink href="/events">Events</NavLink>
+            <AuthorizeView Policy="@Policies.Admin">
+                <NavLink href="/allowlist">Allow-list</NavLink>
+            </AuthorizeView>
+        </nav>
+        <div class="who">
+            <AuthorizeView>
+                <Authorized>
+                    <span>@context.User.Identity?.Name <span class="muted">(@Role(context.User))</span></span>
+                    <form method="post" action="/account/logout">
+                        <AntiforgeryToken />
+                        <button class="link" type="submit">Sign out</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login">Sign in</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </header>
+    @Body
+    <footer>
+        @if (Options.Dashboard.PublicReadOnly)
+        {
+            <span>Read-only view. Admins sign in to ban or unban addresses.</span>
+        }
+        @if (Options.Dashboard.MaskIps)
+        {
+            <span> Addresses are partly hidden unless you are an administrator.</span>
+        }
+    </footer>
+</div>
+
+@code {
+    private static string Role(System.Security.Claims.ClaimsPrincipal user) =>
+        user.IsInRole(ApiRoles.Admin) ? "admin" : user.IsInRole(ApiRoles.Viewer) ? "viewer" : "no access";
+}

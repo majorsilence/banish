@@ -5,18 +5,6 @@ using Majorsilence.Banish.Store.Api;
 
 namespace Majorsilence.Banish.Api;
 
-public static class Policies
-{
-    /// <summary>An agent or admin API key (or an admin user).</summary>
-    public const string Agent = "Agent";
-
-    /// <summary>An admin API key or admin user.</summary>
-    public const string Admin = "Admin";
-
-    /// <summary>Any signed-in principal, or anyone when the dashboard is public read-only.</summary>
-    public const string Viewer = "Viewer";
-}
-
 public sealed record FailureReport(string Address, string Rule);
 
 public static class ApiEndpoints
@@ -110,29 +98,7 @@ public static class ApiEndpoints
             return Results.Ok(new { banned = ban is not null, ban });
         });
 
-        // ---- viewers ----------------------------------------------------------------------
-        var viewer = api.MapGroup("").RequireAuthorization(Policies.Viewer);
-
-        viewer.MapGet("/bans", async (
-            string? state, string? search, string? source, string? rule, string? machine, int? skip, int? take,
-            IBanStore store, CancellationToken ct) =>
-            Results.Ok(await store.QueryAsync(new BanQuery
-            {
-                State = state ?? "active",
-                Search = search,
-                Source = source,
-                RuleId = rule,
-                MachineName = machine,
-                Skip = skip ?? 0,
-                Take = take ?? 50,
-            }, ct)));
-
-        viewer.MapGet("/stats", async (IBanStore store, CancellationToken ct) => Results.Ok(await store.GetStatsAsync(ct)));
-
-        viewer.MapGet("/events", async (int? take, IBanStore store, CancellationToken ct) =>
-            Results.Ok(await store.GetEventsAsync(take ?? 100, ct)));
-
-        viewer.MapGet("/blocklist.txt", async (IBanStore store, CancellationToken ct) =>
+        agent.MapGet("/blocklist.txt", async (IBanStore store, CancellationToken ct) =>
         {
             var active = await store.GetActiveAsync(ct);
             var sb = new StringBuilder();
@@ -142,6 +108,38 @@ public static class ApiEndpoints
             }
 
             return Results.Text(sb.ToString(), "text/plain");
+        });
+
+        // ---- viewers ----------------------------------------------------------------------
+        var viewer = api.MapGroup("").RequireAuthorization(Policies.Viewer);
+
+        viewer.MapGet("/bans", async (
+            string? state, string? search, string? source, string? rule, string? machine, int? skip, int? take,
+            IBanStore store, ClaimsPrincipal user, BanishOptions options, CancellationToken ct) =>
+        {
+            var page = await store.QueryAsync(new BanQuery
+            {
+                State = state ?? "active",
+                Search = search,
+                Source = source,
+                RuleId = rule,
+                MachineName = machine,
+                Skip = skip ?? 0,
+                Take = take ?? 50,
+            }, ct);
+            return Results.Ok(ShouldMask(user, options) ? page with { Items = page.Items.Select(IpMasker.Mask).ToList() } : page);
+        });
+
+        viewer.MapGet("/stats", async (IBanStore store, ClaimsPrincipal user, BanishOptions options, CancellationToken ct) =>
+        {
+            var stats = await store.GetStatsAsync(ct);
+            return Results.Ok(ShouldMask(user, options) ? IpMasker.Mask(stats) : stats);
+        });
+
+        viewer.MapGet("/events", async (int? take, IBanStore store, ClaimsPrincipal user, BanishOptions options, CancellationToken ct) =>
+        {
+            var events = await store.GetEventsAsync(take ?? 100, ct);
+            return Results.Ok(ShouldMask(user, options) ? events.Select(IpMasker.Mask).ToList() : events.ToList());
         });
 
         // ---- admins -----------------------------------------------------------------------
@@ -184,6 +182,10 @@ public static class ApiEndpoints
             return Results.Ok(new CountResponse(await store.RemoveAllowAsync(normalized, ct) ? 1 : 0));
         });
     }
+
+    /// <summary>Viewers (and anonymous readers) see partly hidden addresses; agents and admins see everything.</summary>
+    internal static bool ShouldMask(ClaimsPrincipal user, BanishOptions options) =>
+        options.Dashboard.MaskIps && !user.IsInRole(ApiRoles.Admin) && !user.IsInRole(ApiRoles.Agent);
 
     private static string Normalize(string address) =>
         IpAddressUtil.TryNormalize(address, out string normalized) ? normalized : address;

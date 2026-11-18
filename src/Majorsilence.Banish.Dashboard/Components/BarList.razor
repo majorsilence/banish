@@ -1,0 +1,24 @@
+@if (Items.Count == 0)
+{
+    <p class="muted">@Empty</p>
+}
+else
+{
+    <ul class="barlist">
+        @foreach (var item in Items)
+        {
+            <li title="@item.Key: @item.Count">
+                <span class="bl-label">@item.Key</span>
+                <span class="bl-track"><span class="bl-bar" style="width:@Format.Inv(Pct(item))%"></span></span>
+                <span class="bl-value">@item.Count.ToString("N0", CultureInfo.InvariantCulture)</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CountItem> Items { get; set; } = [];
+    [Parameter] public string Empty { get; set; } = "Nothing to show yet.";
+
+    private double Pct(CountItem item) => Items.Count == 0 || Items.Max(i => i.Count) == 0 ? 0 : 100.0 * item.Count / Items.Max(i => i.Count);
+}

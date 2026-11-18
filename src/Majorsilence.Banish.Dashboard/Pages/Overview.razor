@@ -1,0 +1,148 @@
+@page "/"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = Policies.Viewer)]
+@implements IDisposable
+@inject DashboardService Dash
+
+<PageTitle>Banish – Overview</PageTitle>
+<h1>Overview</h1>
+
+@if (_error is not null)
+{
+    <div class="notice error" role="alert">@_error</div>
+}
+
+@if (_stats is null)
+{
+    <p class="muted">Loading…</p>
+}
+else
+{
+    <section class="tiles" aria-label="Summary">
+        <div class="tile"><div class="tile-label">Active bans</div><div class="tile-value">@Format.Compact(_stats.ActiveBans)</div></div>
+        <div class="tile"><div class="tile-label">New in the last 24 hours</div><div class="tile-value">@Format.Compact(_stats.BansLast24Hours)</div></div>
+        <div class="tile"><div class="tile-label">Permanent</div><div class="tile-value">@Format.Compact(_stats.PermanentBans)</div></div>
+        <div class="tile"><div class="tile-label">All bans ever</div><div class="tile-value">@Format.Compact(_stats.TotalBans)</div></div>
+    </section>
+
+    <div class="grid">
+        <section class="card wide">
+            <h2>New bans per day, last 7 days</h2>
+            <ColumnChart Title="New bans per day over the last seven days" Points="_days" XHeading="Day (UTC)" YHeading="New bans" />
+        </section>
+        <section class="card">
+            <h2>Active bans by rule</h2>
+            <BarList Items="_stats.TopRules" Empty="No active bans." />
+        </section>
+        <section class="card">
+            <h2>Active bans by source</h2>
+            <BarList Items="_stats.TopSources" Empty="No active bans." />
+        </section>
+        <section class="card">
+            <h2>Active bans by machine</h2>
+            <BarList Items="_stats.ByMachine" Empty="No active bans." />
+        </section>
+        <section class="card">
+            <h2>Most active offenders (failures before ban)</h2>
+            <BarList Items="_stats.TopAddresses" Empty="No active bans." />
+        </section>
+        <section class="card wide">
+            <h2>Agents</h2>
+            @if (_stats.Agents.Count == 0)
+            {
+                <p class="muted">No agent has reported in yet.</p>
+            }
+            else
+            {
+                <div class="scroll">
+                    <table>
+                        <thead><tr><th>Machine</th><th>Status</th><th>Firewall</th><th>Blocking</th><th>Last seen</th><th>System</th></tr></thead>
+                        <tbody>
+                            @foreach (var agent in _stats.Agents)
+                            {
+                                var (cls, icon, label) = Health(agent);
+                                <tr>
+                                    <td>@agent.MachineName</td>
+                                    <td><span class="status @cls"><span class="icon" aria-hidden="true">@icon</span>@label</span></td>
+                                    <td>@agent.Firewall</td>
+                                    <td>@agent.AppliedBans.ToString("N0", CultureInfo.InvariantCulture)</td>
+                                    <td>@Format.Ago(agent.LastSeenUtc, _now)</td>
+                                    <td class="muted">@agent.Os</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+    <p class="muted">Updated @Format.When(_now). Refreshes every 15 seconds.</p>
+}
+
+@code {
+    private BanStats? _stats;
+    private List<ChartPoint> _days = [];
+    private DateTime _now = DateTime.UtcNow;
+    private string? _error;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _cts = new CancellationTokenSource();
+        _ = RefreshLoopAsync(_cts.Token);
+    }
+
+    private async Task RefreshLoopAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _stats = await Dash.GetStatsAsync();
+            _now = DateTime.UtcNow;
+            _days = _stats.BansPerDay
+                .Select(d => new ChartPoint(
+                    d.DayUtc.ToString("ddd", CultureInfo.InvariantCulture),
+                    d.Count,
+                    $"{d.DayUtc:yyyy-MM-dd}: {d.Count} new ban{(d.Count == 1 ? "" : "s")}"))
+                .ToList();
+            _error = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _error = "Could not load statistics: " + ex.Message;
+        }
+    }
+
+    private (string Class, string Icon, string Label) Health(AgentInfo agent)
+    {
+        var age = _now - agent.LastSeenUtc;
+        return age < TimeSpan.FromSeconds(90) ? ("good", "●", "Online")
+            : age < TimeSpan.FromMinutes(10) ? ("warn", "▲", "Slow")
+            : ("bad", "✕", "Offline");
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

@@ -21,10 +21,13 @@ public sealed class TempStore : IAsyncDisposable
     public TempStore(TimeProvider? time = null, string machine = "test-host")
     {
         var options = new DbContextOptionsBuilder<BanishDbContext>().UseSqlite($"Data Source={_path}").Options;
-        Store = new EfBanStore(new Factory(options), machine, time);
+        Factory = new OptionsFactory(options);
+        Store = new EfBanStore(Factory, machine, time);
     }
 
     public EfBanStore Store { get; }
+
+    public IDbContextFactory<BanishDbContext> Factory { get; }
 
     public string ConnectionString => $"Data Source={_path}";
 
@@ -48,7 +51,7 @@ public sealed class TempStore : IAsyncDisposable
         return ValueTask.CompletedTask;
     }
 
-    private sealed class Factory(DbContextOptions<BanishDbContext> options) : IDbContextFactory<BanishDbContext>
+    private sealed class OptionsFactory(DbContextOptions<BanishDbContext> options) : IDbContextFactory<BanishDbContext>
     {
         public BanishDbContext CreateDbContext() => new(options);
     }

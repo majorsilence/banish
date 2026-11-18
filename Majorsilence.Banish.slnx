@@ -4,6 +4,7 @@
     <Project Path="src/Majorsilence.Banish.Api/Majorsilence.Banish.Api.csproj" />
     <Project Path="src/Majorsilence.Banish.Cli/Majorsilence.Banish.Cli.csproj" />
     <Project Path="src/Majorsilence.Banish.Core/Majorsilence.Banish.Core.csproj" />
+    <Project Path="src/Majorsilence.Banish.Dashboard/Majorsilence.Banish.Dashboard.csproj" />
     <Project Path="src/Majorsilence.Banish.Detectors/Majorsilence.Banish.Detectors.csproj" />
     <Project Path="src/Majorsilence.Banish.Firewall/Majorsilence.Banish.Firewall.csproj" />
     <Project Path="src/Majorsilence.Banish.Hosting/Majorsilence.Banish.Hosting.csproj" />

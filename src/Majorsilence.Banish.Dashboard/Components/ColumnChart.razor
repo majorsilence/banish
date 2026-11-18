@@ -1,0 +1,96 @@
+<figure class="chart">
+    @((MarkupString)Svg())
+    <details class="tableview">
+        <summary>View as table</summary>
+        <table>
+            <thead><tr><th>@XHeading</th><th>@YHeading</th></tr></thead>
+            <tbody>
+                @foreach (var p in Points)
+                {
+                    <tr><td>@p.Label</td><td>@p.Value</td></tr>
+                }
+            </tbody>
+        </table>
+    </details>
+</figure>
+
+@code {
+    private const double W = 560, H = 200, Left = 36, Right = 8, Top = 14, Bottom = 28;
+    private static double Base => H - Bottom;
+
+    [Parameter, EditorRequired] public IReadOnlyList<ChartPoint> Points { get; set; } = [];
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string XHeading { get; set; } = "Day";
+    [Parameter] public string YHeading { get; set; } = "Count";
+
+    private int MaxValue => Points.Count == 0 ? 0 : Points.Max(p => p.Value);
+
+    private double Step
+    {
+        get
+        {
+            double raw = Math.Max(MaxValue, 3) / 3.0;
+            double magnitude = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+            foreach (double multiple in new[] { 1d, 2d, 5d, 10d })
+            {
+                if (multiple * magnitude >= raw)
+                {
+                    return Math.Max(1, multiple * magnitude);
+                }
+            }
+
+            return Math.Max(1, 10 * magnitude);
+        }
+    }
+
+    private double Y(double value) => Base - (value / (3 * Step) * (Base - Top));
+
+    private static string F(double d) => Format.Inv(d);
+
+    private static string E(string s) => System.Net.WebUtility.HtmlEncode(s);
+
+    // Columns are at most 24px wide, rounded 4px at the data end and square at the baseline. Only the
+    // latest and the highest column carry a value label; every column has a tooltip and the table view.
+    private string Svg()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<svg viewBox=\"0 0 {F(W)} {F(H)}\" role=\"img\" aria-label=\"{E(Title)}\">");
+        for (int i = 0; i < 4; i++)
+        {
+            double tick = i * Step;
+            sb.Append($"<line class=\"grid-line\" x1=\"{F(Left)}\" x2=\"{F(W - Right)}\" y1=\"{F(Y(tick))}\" y2=\"{F(Y(tick))}\" />");
+            sb.Append($"<text class=\"tick\" x=\"{F(Left - 6)}\" y=\"{F(Y(tick) + 4)}\" text-anchor=\"end\">{E(Format.Compact((long)tick))}</text>");
+        }
+
+        sb.Append($"<line class=\"axis-line\" x1=\"{F(Left)}\" x2=\"{F(W - Right)}\" y1=\"{F(Base)}\" y2=\"{F(Base)}\" />");
+        double slot = (W - Left - Right) / Math.Max(1, Points.Count);
+        double width = Math.Min(24, slot * 0.5);
+        for (int i = 0; i < Points.Count; i++)
+        {
+            var p = Points[i];
+            double x = Left + (slot * i) + ((slot - width) / 2);
+            double h = p.Value <= 0 ? 0 : Math.Max(2, Base - Y(p.Value));
+            if (h > 0)
+            {
+                sb.Append($"<path class=\"col\" d=\"{ColumnPath(x, width, h)}\"><title>{E(p.Tooltip)}</title></path>");
+            }
+
+            sb.Append($"<rect class=\"hit\" x=\"{F(Left + slot * i)}\" y=\"{F(Top)}\" width=\"{F(slot)}\" height=\"{F(Base - Top)}\"><title>{E(p.Tooltip)}</title></rect>");
+            sb.Append($"<text class=\"xlabel\" x=\"{F(x + width / 2)}\" y=\"{F(Base + 16)}\" text-anchor=\"middle\">{E(p.Label)}</text>");
+            if (h > 0 && (i == Points.Count - 1 || p.Value == MaxValue))
+            {
+                sb.Append($"<text class=\"vlabel\" x=\"{F(x + width / 2)}\" y=\"{F(Base - h - 5)}\" text-anchor=\"middle\">{p.Value}</text>");
+            }
+        }
+
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
+    private static string ColumnPath(double x, double width, double height)
+    {
+        double r = Math.Min(4, height);
+        double top = Base - height;
+        return $"M{F(x)},{F(Base)} V{F(top + r)} Q{F(x)},{F(top)} {F(x + r)},{F(top)} H{F(x + width - r)} Q{F(x + width)},{F(top)} {F(x + width)},{F(top + r)} V{F(Base)} Z";
+    }
+}
