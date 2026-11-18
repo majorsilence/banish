@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **M4 – Web API**
+  - `banish-api`: ASP.NET Core minimal API (`/api/v1`) in front of the central store, with
+    hashed per-agent API keys (`banish apikey create|list|revoke`), `agent`/`admin` roles, rate limiting
+    and a warning when listening on non-loopback HTTP.
+  - Agents are least-privilege: an agent key can read active bans, report bans as itself (source forced
+    to `local`, never against an allow-listed address) and send heartbeats; it cannot unban,
+    edit the allow-list or claim manual bans.
+  - `Store:Provider = Api` (`HttpBanStore`) lets an agent use the API as its store.
+  - `POST /api/v1/failures` feeds the central engine for rules with `"Detector": "Http"` (apps/WAFs).
+  - `GET /api/v1/blocklist.txt` exports the active bans.
+  - Schema now also holds `ApiKeys` and `Users` (local dashboard accounts, used from M5).
 - **M3 – shared database**
   - MySQL joins SQLite, PostgreSQL and SQL Server as an EF Core store (`Store:Provider` = `MySql`,
     using Oracle's `MySql.EntityFrameworkCore`; Pomelo has no stable EF Core 10 release).

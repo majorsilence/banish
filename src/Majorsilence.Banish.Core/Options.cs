@@ -11,6 +11,16 @@ public sealed class BanishOptions
     public ReconcileOptions Reconcile { get; set; } = new();
     public SyncOptions Sync { get; set; } = new();
     public ApiOptions Api { get; set; } = new();
+    public DashboardOptions Dashboard { get; set; } = new();
+}
+
+public sealed class DashboardOptions
+{
+    /// <summary>When true, anyone can open the read-only statistics views without signing in.</summary>
+    public bool PublicReadOnly { get; set; }
+
+    /// <summary>Hide the last part of each IP address from viewers who are not admins.</summary>
+    public bool MaskIps { get; set; } = true;
 }
 
 public static class StoreProviders

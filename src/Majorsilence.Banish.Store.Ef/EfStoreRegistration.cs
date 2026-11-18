@@ -66,6 +66,7 @@ public static class EfStoreRegistration
         services.AddDbContextFactory<BanishDbContext>(o => Configure(o, store));
         services.AddSingleton(sp => new EfBanStore(sp.GetRequiredService<IDbContextFactory<BanishDbContext>>(), machineName));
         services.AddSingleton<IBanStore>(sp => sp.GetRequiredService<EfBanStore>());
+        services.AddSingleton(sp => new ApiKeyService(sp.GetRequiredService<IDbContextFactory<BanishDbContext>>()));
         return services;
     }
 

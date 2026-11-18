@@ -21,6 +21,9 @@ public static class DetectorFactory
 
                 logger.LogWarning("Rule {Rule}: WindowsEventLog detector is only available on Windows; skipped", rule.Name);
                 return null;
+            case "http":
+                // Fed by the Web API's failure-report endpoint, not by an agent-side detector.
+                return null;
             default:
                 logger.LogError("Rule {Rule}: unknown detector '{Detector}'", rule.Name, rule.Detector);
                 return null;

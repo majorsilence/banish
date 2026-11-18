@@ -1,5 +1,6 @@
 using Majorsilence.Banish.Core;
 using Majorsilence.Banish.Firewall;
+using Majorsilence.Banish.Store.Api;
 using Majorsilence.Banish.Store.Ef;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,15 @@ public static class BanishServices
         if (EfStoreRegistration.IsEfProvider(options.Store.Provider))
         {
             services.AddBanishEfStore(options.Store, options.MachineName);
+        }
+        else if (options.Store.Provider.Equals(StoreProviders.Api, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(options.Store.ApiUrl) || string.IsNullOrWhiteSpace(options.Store.ApiKey))
+            {
+                throw new InvalidOperationException("Store:ApiUrl and Store:ApiKey are required when Store:Provider is Api.");
+            }
+
+            services.AddSingleton<IBanStore>(_ => new HttpBanStore(new HttpClient(), options.Store.ApiUrl, options.Store.ApiKey));
         }
         else
         {

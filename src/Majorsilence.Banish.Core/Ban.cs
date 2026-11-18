@@ -82,3 +82,22 @@ public sealed class AgentInfo
 }
 
 public sealed record FailureEvent(System.Net.IPAddress Address, string RuleName, DateTime TimestampUtc, string? Line = null);
+
+/// <summary>Roles carried by API keys and dashboard users.</summary>
+public static class ApiRoles
+{
+    /// <summary>An agent: may read active bans, report bans of its own and send heartbeats.</summary>
+    public const string Agent = "agent";
+
+    /// <summary>Full control: ban, unban, allow-list, sync, key management.</summary>
+    public const string Admin = "admin";
+
+    /// <summary>Read-only access to statistics and ban lists (dashboard users).</summary>
+    public const string Viewer = "viewer";
+}
+
+/// <summary>JSON settings shared by the Web API and its client so both ends agree.</summary>
+public static class BanishJson
+{
+    public static readonly System.Text.Json.JsonSerializerOptions Options = new(System.Text.Json.JsonSerializerDefaults.Web);
+}

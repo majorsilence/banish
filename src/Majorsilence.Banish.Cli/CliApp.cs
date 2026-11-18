@@ -24,6 +24,8 @@ public static class CliApp
           allow list | add <ip|cidr> [--note <text>] | remove <ip|cidr>
                                           Manage the shared allow-list
           test-rule <rule> <logfile>      Show what a rule would match in a log file
+          apikey create <name> [--role agent|admin] | list | revoke <name>
+                                          Manage Web API keys (run where the central database is reachable)
           sync [--dry-run]                Refresh blocklists now
           config path | show              Show the configuration file location / effective settings
           help                            Show this help
@@ -74,6 +76,7 @@ public static class CliApp
                 "ban" => await BanAsync(store, options, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "unban" => await UnbanAsync(store, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "allow" => await AllowAsync(store, parsed, output, error, cancellationToken).ConfigureAwait(false),
+                "apikey" => await ApiKeyAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "sync" => await SyncCommand.RunAsync(store, options, parsed.Flag("dry-run"), output, error, cancellationToken).ConfigureAwait(false),
                 _ => await UnknownAsync(command, error).ConfigureAwait(false),
             };
@@ -82,6 +85,47 @@ public static class CliApp
         {
             await error.WriteLineAsync($"Error: {ex.Message}").ConfigureAwait(false);
             return 1;
+        }
+    }
+
+    private static async Task<int> ApiKeyAsync(IServiceProvider provider, ParsedArgs args, TextWriter output, TextWriter error, CancellationToken ct)
+    {
+        var keys = provider.GetService<ApiKeyService>();
+        if (keys is null)
+        {
+            await error.WriteLineAsync("API keys are managed on the central database; this store provider is the Web API itself. Run this command on the API host.").ConfigureAwait(false);
+            return 1;
+        }
+
+        string sub = args.Positional.Skip(1).FirstOrDefault() ?? "list";
+        string? name = args.Positional.Skip(2).FirstOrDefault();
+        switch (sub)
+        {
+            case "create" when name is not null:
+                var (entry, key) = await keys.CreateAsync(name, args.Option("role") ?? ApiRoles.Agent, ct).ConfigureAwait(false);
+                await output.WriteLineAsync($"Created {entry.Role} key '{entry.Name}'. Copy it now; it cannot be shown again:").ConfigureAwait(false);
+                await output.WriteLineAsync(key).ConfigureAwait(false);
+                return 0;
+            case "list":
+                foreach (var k in await keys.ListAsync(ct).ConfigureAwait(false))
+                {
+                    string state = k.RevokedUtc is null ? "active" : "revoked";
+                    await output.WriteLineAsync($"{k.Name,-32} {k.Role,-6} {k.Prefix}...  {state,-8} last used {(k.LastUsedUtc?.ToString("u") ?? "never")}").ConfigureAwait(false);
+                }
+
+                return 0;
+            case "revoke" when name is not null:
+                if (await keys.RevokeAsync(name, ct).ConfigureAwait(false))
+                {
+                    await output.WriteLineAsync($"Revoked key '{name}'.").ConfigureAwait(false);
+                    return 0;
+                }
+
+                await error.WriteLineAsync($"No active key named '{name}'.").ConfigureAwait(false);
+                return 1;
+            default:
+                await error.WriteLineAsync("Usage: banish apikey create <name> [--role agent|admin] | list | revoke <name>").ConfigureAwait(false);
+                return 2;
         }
     }
 

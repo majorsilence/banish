@@ -10,5 +10,6 @@
     <ProjectReference Include="..\Majorsilence.Banish.Detectors\Majorsilence.Banish.Detectors.csproj" />
     <ProjectReference Include="..\Majorsilence.Banish.Firewall\Majorsilence.Banish.Firewall.csproj" />
     <ProjectReference Include="..\Majorsilence.Banish.Store.Ef\Majorsilence.Banish.Store.Ef.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Store.Api\Majorsilence.Banish.Store.Api.csproj" />
   </ItemGroup>
 </Project>

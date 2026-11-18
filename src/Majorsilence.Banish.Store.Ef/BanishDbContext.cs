@@ -15,6 +15,8 @@ public sealed class BanishDbContext : DbContext
     public DbSet<BanEvent> BanEvents => Set<BanEvent>();
     public DbSet<AllowEntry> Allowlist => Set<AllowEntry>();
     public DbSet<AgentInfo> Agents => Set<AgentInfo>();
+    public DbSet<ApiKeyEntry> ApiKeys => Set<ApiKeyEntry>();
+    public DbSet<AdminUser> Users => Set<AdminUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +66,28 @@ public sealed class BanishDbContext : DbContext
             e.Property(a => a.Os).HasMaxLength(128);
             e.Property(a => a.Version).HasMaxLength(64);
             e.Property(a => a.Firewall).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<ApiKeyEntry>(e =>
+        {
+            e.ToTable("ApiKeys");
+            e.HasKey(k => k.Id);
+            e.Property(k => k.Name).HasMaxLength(128).IsRequired();
+            e.Property(k => k.Prefix).HasMaxLength(16);
+            e.Property(k => k.KeyHash).HasMaxLength(64).IsRequired();
+            e.Property(k => k.Role).HasMaxLength(16).IsRequired();
+            e.HasIndex(k => k.KeyHash).IsUnique();
+            e.HasIndex(k => k.Name);
+        });
+
+        modelBuilder.Entity<AdminUser>(e =>
+        {
+            e.ToTable("Users");
+            e.HasKey(u => u.Id);
+            e.Property(u => u.UserName).HasMaxLength(128).IsRequired();
+            e.Property(u => u.PasswordHash).HasMaxLength(512).IsRequired();
+            e.Property(u => u.Role).HasMaxLength(16).IsRequired();
+            e.HasIndex(u => u.UserName).IsUnique();
         });
 
         // All timestamps are UTC; providers differ in whether they keep the Kind.

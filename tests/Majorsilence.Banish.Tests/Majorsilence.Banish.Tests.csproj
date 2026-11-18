@@ -13,5 +13,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Banish.Hosting\Majorsilence.Banish.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Banish.Cli\Majorsilence.Banish.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Banish.Api\Majorsilence.Banish.Api.csproj" />
   </ItemGroup>
 </Project>
