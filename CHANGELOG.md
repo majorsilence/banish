@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **OIDC verified against a live provider** (Keycloak 26 in Docker): code flow with PKCE, role mapping from a
+  `roles` claim, no access for a user without a role, and sign-out. Example realm in `docs/examples/`.
+- Release workflow: the release job now downloads only the `banish-*` binary artifacts; the image job's build
+  record made the download of "all artifacts" fail, so v0.1.0 has no GitHub release. Use v0.1.1.
+
 - **Windows verification** (first run on real Windows 11 Pro 10.0.26300; fixes found by it)
   - Windows Firewall provider: verified creating, updating and removing the inbound block rules `Banish_Block_N`
     (IPv4, IPv6 and CIDR entries, 1,000 addresses per rule, all profiles). Windows rewrites `RemoteAddresses`

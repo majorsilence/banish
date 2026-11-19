@@ -108,7 +108,12 @@ banish user create auditor --role viewer
 ```
 
 The redirect URI to register is `https://<host>/signin-oidc`. Users with no matching role get no access.
-The OIDC flow has not been exercised against a live provider yet.
+Verified against Keycloak 26 (authorization code + PKCE, roles from a flat `roles` claim): sign-in, role
+mapping (admin, viewer, and a user with no role who gets no access) and sign-out all work. Keycloak needs a
+mapper that puts the realm roles in a top-level claim; [examples/keycloak-realm.json](examples/keycloak-realm.json)
+is a realm with the client, mapper and three test users that you can import into a development Keycloak
+(`start-dev --import-realm`). Register `https://<host>/signout-callback-oidc` as a post-logout redirect URI.
+Other providers have not been tried.
 
 **Use HTTPS.** `banish-api` listens on `Api:Urls` (default `http://127.0.0.1:5380`). Put a reverse
 proxy with TLS in front of it before exposing it; the API logs a warning when it listens on a non-loopback
