@@ -72,6 +72,7 @@ jobs:
       - uses: actions/download-artifact@v6
         with:
           path: artifacts
+          pattern: banish-*
           merge-multiple: true
       - name: Create the GitHub release
         env:
