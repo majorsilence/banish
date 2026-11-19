@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **Windows verification** (first run on real Windows 11 Pro 10.0.26300; fixes found by it)
+  - Windows Firewall provider: verified creating, updating and removing the inbound block rules `Banish_Block_N`
+    (IPv4, IPv6 and CIDR entries, 1,000 addresses per rule, all profiles). Windows rewrites `RemoteAddresses`
+    on read (sorted, netmasks added, single IPv6 hosts as ranges), so every apply used to rewrite the rules;
+    the desired list is now compared in Windows' own form, and a disabled or altered rule is repaired.
+  - Verified end to end: a ban reaches the firewall within `Reconcile:IntervalSeconds` and a second machine
+    (WSL2) can no longer connect until the ban is lifted. Windows-only tests (`[Platform("Win")]`) cover the
+    provider; the ones that edit rules run only in an elevated process.
+  - Event Log detector: a failed subscription (no right to read the Security log) used to be swallowed, so the
+    agent logged "subscribed" and never saw anything; it now stops with a message naming Administrator and
+    "Event Log Readers". Event 4625 was checked against real events (`IpAddress` is a plain address, `::1`,
+    `127.0.0.1` or `-` for local logons); the default pattern also accepts double-quoted attributes.
+  - `banish user create|passwd --password-stdin`: Windows PowerShell 5.1 prefixes piped text with a UTF-8 byte
+    order mark, which became part of the password and made sign-in impossible. It is now stripped.
+  - `banish-api` serves its static files (including `/_framework/blazor.web.js`) from the folder holding the
+    executable; started from another working directory it returned an empty script and the dashboard did not load.
+  - Services: `banish config init`, `install`, `install --api` and `uninstall [--api]` verified from a path with a
+    space (`C:\Program Files\...`): correct quoting, auto-start, LocalSystem, restart-on-failure actions (a killed
+    agent came back within 12 s), start/stop, and the database and key ring written to `%ProgramData%\Banish`.
+    The API service served `/api/v1/health`, `/_framework/blazor.web.js` and `/login`. No changes were needed.
+  - The single-file win-x64 build (about 49 MB for `banish` and `banish-agent`, 60 MB for `banish-api`) runs.
 - **M7 – packaging and release**
   - `banish install [--api]` / `uninstall` register a systemd unit (the API unit runs as a dynamic user with no
     capabilities), a launchd daemon or a Windows service; `banish config init` writes an annotated sample.

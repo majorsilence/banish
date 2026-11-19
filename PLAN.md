@@ -157,5 +157,6 @@ All milestones M1–M7 are implemented and pushed; the test suite is 154 unit/HT
 | Packaging: MSI, `.deb`/`.rpm`, Homebrew, winget, NuGet, SBOM/signing | Not done. Delivered: self-contained single-file binaries per OS/arch in GitHub releases, `banish install` for systemd / launchd / Windows services, a Dockerfile and compose example for the API. See BACKLOG.md. |
 | GeoIP | Backlog, as agreed. |
 
-Not yet run on real hardware: the Windows Firewall, Windows Event Log, macOS `pf`/launchd code and the OIDC
-sign-in redirect (they are implemented and their generated commands/config are tested).
+Run on Windows 11 (see CHANGELOG.md): the Windows Firewall, Windows Event Log detector, services and single-file builds.
+Not yet run on real hardware: the macOS `pf`/launchd code and the OIDC sign-in redirect (they are implemented and
+their generated commands/config are tested), and a remote RDP failed logon on Windows.

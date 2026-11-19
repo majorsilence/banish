@@ -67,10 +67,26 @@ capabilities; the agent stays root because it edits the firewall.
 Use `"Firewall": { "Provider": "DryRun" }` first to see what would be blocked without touching anything.
 
 > **Platform status.** The Linux paths (nftables script generation, iptables/ipset, log and journald
-> detection, the systemd unit) are covered by tests and were run on Linux. The Windows Firewall, Windows
-> Event Log, macOS `pf` and launchd code is implemented and unit-tested for the text it generates, but has
-> **not been run on those operating systems yet**. Try it in DryRun mode and with an allow-listed
-> address you can reach from elsewhere before relying on it.
+> detection, the systemd unit) are covered by tests and were run on Linux. The Windows paths were run on
+> Windows 11 Pro (10.0.26300): Windows Firewall rules (create, update, remove, IPv4/IPv6/CIDR, blocking a
+> second machine), the Event Log detector on real failed-logon events, `banish install|uninstall [--api]`
+> as services under LocalSystem (auto-start, restart on failure, `%ProgramData%\Banish` writable), and the
+> single-file win-x64 binaries. Not exercised on Windows: a remote failed logon over RDP (NLA or not) feeding
+> a ban, and SQL Server from the single-file build. The macOS `pf` and launchd code is implemented and
+> unit-tested for the text it generates, but has **not been run on macOS yet**. Try any new platform in
+> DryRun mode and with an allow-listed address you can reach from elsewhere before relying on it.
+
+### Windows notes
+
+* Reading the **Security** event log needs Administrator; the service runs as LocalSystem, which can. To run
+  the agent under another account, add it to the *Event Log Readers* group. Without the right the agent stops
+  with a message naming both options instead of running blind.
+* Failed logons from the machine itself log `::1`, `127.0.0.1` or `-` as the address; those are never banned.
+  Event 4625 is only written when failure auditing for the *Logon* subcategory is on
+  (`auditpol /get /subcategory:"Logon"`).
+* Editing Windows Firewall rules also needs Administrator. Rules appear as `Banish_Block_0`, `Banish_Block_1`, ...
+  (inbound, block, all profiles) and are removed by `banish unban` / when the bans expire.
+* `banish user create --password-stdin` strips the byte order mark that Windows PowerShell 5.1 adds to piped text.
 
 ## The dashboard
 

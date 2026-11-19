@@ -30,8 +30,10 @@ and the store libraries, release signing and an SBOM.
 
 ## Verification on real platforms
 
-Run and fix, if needed, the Windows Firewall, Windows Event Log, macOS `pf`/launchd paths and the OIDC redirect
-flow against a real identity provider; add CI jobs that exercise them where runners allow.
+Run and fix, if needed, the macOS `pf`/launchd paths and the OIDC redirect flow against a real identity provider;
+on Windows, exercise a remote RDP failed logon (NLA and non-NLA, IPv6) end to end and SQL Server from the
+single-file build. Add CI jobs that exercise these where runners allow (the elevated Windows firewall tests
+run on `windows-latest`, whose runner is an administrator).
 
 ## Dashboard extras
 
