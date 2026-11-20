@@ -2,39 +2,27 @@
 
 Items here are accepted but not scheduled. See [PLAN.md](PLAN.md) for the active plan.
 
-## GeoIP maps (optional, off by default)
-
-Enrich bans with country/ASN using a local MaxMind GeoLite2 database file and show maps and "top countries/networks" on the dashboard.
-
-- Disabled by default; enabled via configuration (`GeoIp:Enabled`, `GeoIp:DatabasePath`).
-- User supplies the database file (and MaxMind license key if auto-update is added); nothing is bundled.
-- Lookups are local; no per-IP network calls.
-- Must not affect detection or banning, only dashboard display and stats.
-- Do not start until the dashboard milestone (M5) is complete.
-
-## Retention / pruning of old data
-
-Expired and lifted bans and old `BanEvents` are never deleted, so the tables grow. Add a configurable retention
-(for example keep ban history for 365 days, which also bounds how long repeat-offender escalation remembers an address)
-and a `banish prune` command / background pass.
-
-## Versioned schema migrations
-
-The schema is created with `EnsureCreated`, which cannot alter an existing database. Add EF Core migrations
-per provider before the first schema change after release.
-
-## Native installers and distribution
-
-MSI/winget (Windows), `.deb`/`.rpm` (Linux), Homebrew formula (macOS), NuGet packages for `Majorsilence.Banish.Core`
-and the store libraries, release signing and an SBOM.
-
 ## Verification on real platforms
 
-Run and fix, if needed, the macOS `pf`/launchd paths and the OIDC redirect flow against a real identity provider;
-on Windows, exercise a remote RDP failed logon (NLA and non-NLA, IPv6) end to end and SQL Server from the
-single-file build. Add CI jobs that exercise these where runners allow (the elevated Windows firewall tests
-run on `windows-latest`, whose runner is an administrator).
+* macOS: run and fix, if needed, the `pf` and launchd paths (no Mac has run them yet).
+* OIDC: verified against Keycloak only; try Entra ID, Google and Auth0 (their role/group claims differ).
+* Windows: a remote RDP failed logon (NLA and non-NLA, IPv6) feeding a ban end to end, and SQL Server from the
+  single-file build.
 
-## Dashboard extras
+## Distribution
 
-Theme toggle, IP/ban search across history, per-rule drill-downs, push updates instead of a 15-second refresh.
+* Authenticode-sign the MSI and executables, and notarize the macOS binaries (needs certificates).
+* Publish the Homebrew formula to a tap and the winget manifests to `microsoft/winget-pkgs` automatically.
+* Signed apt/yum repositories (today the `.deb`/`.rpm` are downloaded from the release page).
+
+## GeoIP
+
+* Land outlines on the bubble map (it shows a graticule and bubbles only; no map geometry is bundled).
+* Optional automatic update of the GeoLite2 files with a MaxMind license key.
+* City-level points when a city database is configured.
+
+## Dashboard
+
+* Per-address history page (all bans and events for one address).
+* Push updates for changes made by other processes (agents that write to the database directly); today those
+  show up on the one-minute poll.

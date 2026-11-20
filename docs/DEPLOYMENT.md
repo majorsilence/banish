@@ -42,6 +42,25 @@ The API itself uses one of the database providers from topology 2 (`Store:Provid
 
 ## Installing
 
+### Packages
+
+* **.deb / .rpm** put `banish`, `banish-agent` and `banish-api` in `/usr/bin`, the units `banish-agent.service`
+  and `banish-api.service` in `/usr/lib/systemd/system`, a sample `/etc/banish/banish.json` (kept on upgrade and
+  removal) and an empty `/var/lib/banish`. Nothing is enabled or started: review the configuration, then
+  `sudo systemctl enable --now banish-agent` (or `banish-api` on the central host).
+* **.msi** installs to `C:\Program Files\Banish`, adds it to the machine `PATH` and writes a sample
+  `%ProgramData%\Banish\banish.json` once. `msiexec /i banish-<version>-win-x64.msi /qn INSTALLAGENT=1` (or
+  `INSTALLAPI=1`) also registers and starts the service. Uninstalling removes the services but keeps the
+  configuration and database in `%ProgramData%\Banish`. The MSI is not Authenticode-signed (see BACKLOG.md), so
+  SmartScreen may warn; check the SHA-256 or the attestation (`gh attestation verify <file> --repo majorsilence/banish`).
+* **Homebrew**: the release carries `banish.rb`. Put it in a tap (for example `majorsilence/homebrew-tap`,
+  `Formula/banish.rb`) and run `brew install majorsilence/tap/banish`, then `sudo banish install`.
+* **winget**: the release carries `banish-<version>-winget-manifests.zip`, ready to submit to `microsoft/winget-pkgs`.
+* **NuGet**: `Majorsilence.Banish.Core`, `.Store.Ef` (with the four `.Store.Ef.Migrations.*` packages), `.Store.Api`,
+  `.Detectors`, `.Firewall`, `.Sync`, `.GeoIp` and `.Hosting`, for building your own detector, store or host.
+
+### Archives
+
 Unpack the archive for your platform (for example `banish-0.1.0-linux-x64.tar.gz`) somewhere permanent
 such as `/opt/banish` or `C:\Program Files\Banish`, then, as root / Administrator:
 
@@ -120,6 +139,15 @@ proxy with TLS in front of it before exposing it; the API logs a warning when it
 `http://` address, because API keys and passwords would cross the network in clear text. Behind a proxy,
 forward the original client address (the per-IP login rate limit uses the connection address).
 
+## GeoIP maps (optional, off by default)
+
+Set `GeoIp:Enabled` to `true` and point `GeoIp:CountryDatabasePath` at a country or city database in MaxMind `.mmdb`
+format (the free GeoLite2 needs a MaxMind account; DB-IP "lite" files also work). `GeoIp:AsnDatabasePath` adds
+network names. Nothing is bundled, downloaded or sent anywhere: lookups read the local file, and only the
+dashboard overview uses them (a bubble map placed at each country's centre, top countries and top networks, as
+totals only). Detection, banning and the firewall never call it, and a missing or unreadable file just hides
+the section. Check the database's license terms for your use.
+
 ## Blocklists
 
 See the README. Configure `Sync:Sources` on **one** node when several share a store, and check each
@@ -131,7 +159,16 @@ list's terms of use.
 * **Locked out?** Add your address to the allow-list from another machine (`banish allow add <ip>`) or stop the
   agent (`systemctl stop banish-agent`); on Linux `nft delete table inet banish` removes every block at once.
   Private ranges, loopback and the machine's own addresses are never banned by default.
-* **Expired bans are not deleted** yet; the tables grow slowly (see BACKLOG.md).
+* **Retention.** Lifted and expired bans are kept for `Retention:BanHistoryDays` (365) and audit events for
+  `Retention:EventDays` (90); a background pass deletes older rows once a day on the host that owns the database
+  (the agent with a local or direct database, or the API host), and `banish prune [--dry-run]` does it on demand.
+  Repeat-offender escalation counts earlier bans, so it only remembers an address that long. Active bans are never
+  deleted. Set a value to `0` to keep that kind forever.
+* **Schema upgrades.** The schema is managed with EF Core migrations (one set per database provider). Every
+  agent and the API apply pending migrations when they start, and databases made by 0.1.x are adopted as they are.
+  Upgrade the API host (or one agent) first when several processes share a database. Developers: after changing the
+  model run `dotnet ef migrations add <Name> --project src/Majorsilence.Banish.Store.Ef.Migrations.<Provider>` for each
+  of Sqlite, PostgreSql, SqlServer and MySql (a test fails if one is missing).
 * **Trust.** Whoever can write to the shared store can ban any non-allow-listed address on every machine.
   Protect database credentials and admin API keys accordingly; prefer topology 3 with per-agent keys.
 * **Time.** Expiry uses UTC timestamps written by each agent; keep clocks in sync (NTP).

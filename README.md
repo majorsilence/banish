@@ -16,9 +16,20 @@ See [PLAN.md](PLAN.md) for the design, [CHANGELOG.md](CHANGELOG.md) for progress
 
 ## Install
 
-Download the archive for your platform from the GitHub releases page and see
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (topologies, services, firewall tools, dashboard sign-in, HTTPS).
-Short version: `banish config init && sudo banish install`.
+Pick whichever suits the machine (every release also lists SHA-256 sums, an SBOM and signed provenance):
+
+| Platform | Package |
+|---|---|
+| Debian / Ubuntu | `sudo dpkg -i banish_<version>_amd64.deb` (or `arm64`) |
+| Fedora / RHEL / SUSE | `sudo rpm -i banish-<version>.x86_64.rpm` (or `aarch64`) |
+| Windows | `msiexec /i banish-<version>-win-x64.msi /qn` (add `INSTALLAGENT=1` to also register the agent service) |
+| macOS | the Homebrew formula `banish.rb` from the release (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
+| Anything else | the `.tar.gz` / `.zip` archive: self-contained single files, nothing else to install |
+| .NET libraries | NuGet packages `Majorsilence.Banish.*` (listed on the release) |
+
+The packages install the programs, a systemd unit or Windows files and a sample configuration, but never start
+anything for you. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (topologies, services, firewall tools, dashboard
+sign-in, HTTPS, retention, GeoIP). Short version: `banish config init && sudo banish install`.
 
 ## Quick start from source (Linux)
 

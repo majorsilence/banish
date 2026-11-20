@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Native packages.** `.deb` and `.rpm` (systemd units, sample config in `/etc/banish`), a Windows `.msi`
+  (PATH, sample config, optional service registration with `INSTALLAGENT=1` / `INSTALLAPI=1`), a Homebrew formula and
+  winget manifests generated for each release, and NuGet packages for the libraries. Releases also carry
+  `SHA256SUMS`, an SPDX SBOM and signed build-provenance attestations. The release workflow can be run by hand as a
+  dry run that builds the installers and installs them on the runners without publishing.
+- **GeoIP maps** (`GeoIp:*`, off by default): country and network lookups from a local MaxMind-format file; the
+  dashboard overview gets a bubble map, top countries and top networks (totals only).
+- **Dashboard.** Pages update as soon as bans change on the API host instead of every 15 seconds (a one-minute
+  poll remains for changes made by other processes); overview lists link to a filtered ban list (rule, source,
+  machine); the ban list takes `rule`, `source`, `machine`, `state` and `search` in the address and has a Rule
+  filter; light / dark / system theme switch.
+- **Retention.** `Retention:*` and `banish prune`: old lifted/expired bans and events are deleted (defaults 365 and
+  90 days, daily).
+- **Schema migrations.** EF Core migrations per provider replace `EnsureCreated`; 0.1.x databases are adopted
+  without changes. Verified on SQLite, PostgreSQL, SQL Server and MySQL.
+- `Api:Urls` accepts a JSON array as well as a `;`-separated string and refuses values that are not http(s) URLs
+  (a malformed value used to be ignored and the API listened on the default port).
+- Release workflow: the release job downloads only the `banish-*` artifacts (v0.1.0 has a tag but no release
+  because of this; v0.1.1 is the first release).
+
 - **OIDC verified against a live provider** (Keycloak 26 in Docker): code flow with PKCE, role mapping from a
   `roles` claim, no access for a user without a role, and sign-out. Example realm in `docs/examples/`.
 - Release workflow: the release job now downloads only the `banish-*` binary artifacts; the image job's build

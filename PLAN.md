@@ -142,21 +142,23 @@ Versioned `/api/v1`:
 
 ## Status and deviations
 
-All milestones M1–M7 are implemented and pushed; the test suite is 154 unit/HTTP tests plus 33 container tests
-(real PostgreSQL 18, SQL Server 2022 and MySQL 8.4). Where the build differs from the plan above:
+All milestones M1–M7 are implemented and pushed, followed by migrations, retention, dashboard extras, GeoIP and native
+packaging (see CHANGELOG.md). The test suite is about 190 unit/HTTP tests plus 36 container tests (real PostgreSQL 18,
+SQL Server 2022 and MySQL 8.4). Where the build differs from the plan above:
 
 | Plan | What was built |
 |---|---|
 | Projects `Banish.*` / separate `Store` project | `Majorsilence.Banish.*`; the `IBanStore` interface lives in `Core`. Added `Hosting` (composition), `Sync` and `Dashboard` (Razor class library). |
-| Per-provider EF migrations | `EnsureCreated` for every provider (safe when agents start together). Real migrations are on the backlog. |
+| Per-provider EF migrations | EF Core migrations, one migrations assembly per provider, applied at start-up; 0.1.x (`EnsureCreated`) databases are adopted. |
 | firewalld provider | Not needed: the nftables provider coexists with firewalld/ufw. |
 | `Failures` table, `HttpReport` detector | No failures table. Apps report failures to `POST /api/v1/failures`; the API's engine counts them for rules with `"Detector": "Http"`. |
 | Blocklist sources CRUD in the admin UI, `ExpireAfter` | Sources are configuration only (the dashboard shows status and runs "sync now"); imported entries are permanent while listed and lifted when they leave the list. |
 | Auto-allow the current admin session's IP | Replaced by: never ban private ranges, loopback or the machine's own addresses; `banish ban` and the dashboard refuse allow-listed targets unless forced. |
 | Admin keys / user accounts | API keys are hashed (`agent`/`admin`); dashboard users are local (default) or OIDC. |
-| Packaging: MSI, `.deb`/`.rpm`, Homebrew, winget, NuGet, SBOM/signing | Not done. Delivered: self-contained single-file binaries per OS/arch in GitHub releases, `banish install` for systemd / launchd / Windows services, a Dockerfile and compose example for the API. See BACKLOG.md. |
-| GeoIP | Backlog, as agreed. |
+| Packaging: MSI, `.deb`/`.rpm`, Homebrew, winget, NuGet, SBOM/signing | `.deb`/`.rpm` (nfpm), `.msi` (WiX), a generated Homebrew formula and winget manifests, NuGet packages, SBOM and keyless provenance attestations, plus the single-file binaries, `banish install` and the Docker image. Not done: Authenticode/notarization, hosted tap/apt/yum repositories (BACKLOG.md). |
+| GeoIP | Optional and off by default: local MaxMind-format files, a bubble map (no land outlines) and top countries/networks on the overview. |
+| Retention | `Retention:*`, a daily background pass and `banish prune`. |
 
 Run on Windows 11 (see CHANGELOG.md): the Windows Firewall, Windows Event Log detector, services and single-file builds.
-Not yet run on real hardware: the macOS `pf`/launchd code and the OIDC sign-in redirect (they are implemented and
-their generated commands/config are tested), and a remote RDP failed logon on Windows.
+OIDC was run against Keycloak. Not yet run on real hardware: the macOS `pf`/launchd code (implemented, and its
+generated commands/config are tested) and a remote RDP failed logon on Windows.
