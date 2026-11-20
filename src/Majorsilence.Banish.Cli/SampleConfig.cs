@@ -32,6 +32,10 @@ public static class SampleConfig
           // Public blocklists to import (see the README).
           "Sync": { "Sources": [] },
 
+          // Delete lifted/expired bans and old events (0 keeps that kind forever). Repeat-offender
+          // escalation only remembers an address for as long as its earlier bans are kept.
+          "Retention": { "Enabled": true, "BanHistoryDays": 365, "EventDays": 90 },
+
           // banish-api only: listen address, dashboard options and sign-in.
           "Api": { "Urls": "http://127.0.0.1:5380" },
           "Dashboard": { "PublicReadOnly": false, "MaskIps": true },

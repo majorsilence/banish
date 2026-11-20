@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Majorsilence.Banish.Store.Ef;
 
 /// <summary>IBanStore over EF Core: SQLite, PostgreSQL, SQL Server or MySQL.</summary>
-public sealed class EfBanStore : IBanStore
+public sealed class EfBanStore : IBanStore, IPrunable
 {
     private readonly IDbContextFactory<BanishDbContext> _factory;
     private readonly TimeProvider _time;
@@ -24,6 +24,33 @@ public sealed class EfBanStore : IBanStore
     {
         await using var db = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         await SchemaMigrator.MigrateAsync(db, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PruneResult> PruneAsync(DateTime? bansEndedBeforeUtc, DateTime? eventsBeforeUtc, bool dryRun, CancellationToken cancellationToken)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        int bans = 0;
+        int events = 0;
+        if (bansEndedBeforeUtc is { } cutoff)
+        {
+            // Ended = lifted before the cut-off, or never lifted and expired before it. Active bans are never matched.
+            var ended = db.Bans.Where(b =>
+                (b.RemovedUtc != null && b.RemovedUtc < cutoff)
+                || (b.RemovedUtc == null && b.ExpiresUtc != null && b.ExpiresUtc < cutoff));
+            bans = dryRun
+                ? await ended.CountAsync(cancellationToken).ConfigureAwait(false)
+                : await ended.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (eventsBeforeUtc is { } eventCutoff)
+        {
+            var old = db.BanEvents.Where(e => e.TimestampUtc < eventCutoff);
+            events = dryRun
+                ? await old.CountAsync(cancellationToken).ConfigureAwait(false)
+                : await old.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return new PruneResult(bans, events);
     }
 
     public async Task<Ban> AddAsync(Ban ban, CancellationToken cancellationToken)

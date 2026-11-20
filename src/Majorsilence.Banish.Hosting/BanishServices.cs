@@ -57,6 +57,7 @@ public static class BanishServices
             () => sp.GetRequiredService<AllowlistProvider>().Current,
             sp.GetRequiredService<ILoggerFactory>().CreateLogger("Reconciler")));
         services.AddBanishSync(options, runInBackground: true);
+        services.AddBanishRetention(options);
         services.AddHostedService<StoreInitializer>();
         services.AddHostedService<DetectorService>();
         services.AddHostedService<ReconcileService>();

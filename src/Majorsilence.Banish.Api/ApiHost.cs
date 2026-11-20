@@ -62,6 +62,7 @@ public static class ApiHost
             options.MachineName,
             logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("Engine")));
         services.AddBanishSync(options, runInBackground: true);
+        services.AddBanishRetention(options);
         services.AddHostedService<StoreInitializer>();
 
         bool oidc = options.Auth.Mode.Equals(AuthModes.Oidc, StringComparison.OrdinalIgnoreCase);

@@ -29,6 +29,8 @@ public static class CliApp
           apikey create <name> [--role agent|admin] | list | revoke <name>
                                           Manage Web API keys (run where the central database is reachable)
           sync [--dry-run]                Refresh blocklists now
+          prune [--dry-run] [--ban-days <n>] [--event-days <n>]
+                                          Delete old ban history and events now (defaults come from Retention)
           config path | show | init [--force]
                                           Show the configuration file location / effective settings / write a sample
           install [--api] [--config <file>] [--no-start]
@@ -87,6 +89,7 @@ public static class CliApp
                 "allow" => await AllowAsync(store, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "user" => await UserAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "apikey" => await ApiKeyAsync(provider, parsed, output, error, cancellationToken).ConfigureAwait(false),
+                "prune" => await PruneAsync(store, options, parsed, output, error, cancellationToken).ConfigureAwait(false),
                 "sync" => await SyncCommand.RunAsync(options, parsed.Flag("dry-run"), output, error, cancellationToken).ConfigureAwait(false),
                 _ => await UnknownAsync(command, error).ConfigureAwait(false),
             };
@@ -96,6 +99,26 @@ public static class CliApp
             await error.WriteLineAsync($"Error: {ex.Message}").ConfigureAwait(false);
             return 1;
         }
+    }
+
+    private static async Task<int> PruneAsync(IBanStore store, BanishOptions options, ParsedArgs args, TextWriter output, TextWriter error, CancellationToken ct)
+    {
+        if (store is not IPrunable prunable)
+        {
+            await error.WriteLineAsync("The data lives behind the Web API; run prune on the host that owns the database.").ConfigureAwait(false);
+            return 1;
+        }
+
+        var retention = new RetentionOptions
+        {
+            BanHistoryDays = int.TryParse(args.Option("ban-days"), out int b) ? b : options.Retention.BanHistoryDays,
+            EventDays = int.TryParse(args.Option("event-days"), out int e) ? e : options.Retention.EventDays,
+        };
+        var (bans, events) = Majorsilence.Banish.Hosting.PruneService.Cutoffs(retention, DateTime.UtcNow);
+        bool dry = args.Flag("dry-run");
+        var result = await prunable.PruneAsync(bans, events, dry, ct).ConfigureAwait(false);
+        await output.WriteLineAsync($"{(dry ? "Would delete" : "Deleted")} {result.Bans} ended bans (older than {(retention.BanHistoryDays > 0 ? retention.BanHistoryDays + " days" : "never")}) and {result.Events} events (older than {(retention.EventDays > 0 ? retention.EventDays + " days" : "never")}).").ConfigureAwait(false);
+        return 0;
     }
 
     private static async Task<int> UserAsync(IServiceProvider provider, ParsedArgs args, TextWriter output, TextWriter error, CancellationToken ct)

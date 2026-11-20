@@ -132,3 +132,16 @@ public interface IBlocklistSync
 
     Task<IReadOnlyList<SyncResult>> RunAllAsync(bool dryRun, CancellationToken cancellationToken);
 }
+
+public sealed record PruneResult(int Bans, int Events);
+
+/// <summary>Implemented by stores that own their data (the EF stores); a Web API client cannot prune.</summary>
+public interface IPrunable
+{
+    /// <summary>
+    /// Deletes bans that ended before <paramref name="bansEndedBeforeUtc"/> (lifted or expired; active bans are never
+    /// touched) and events older than <paramref name="eventsBeforeUtc"/>. A null cut-off keeps that kind forever.
+    /// With <paramref name="dryRun"/> nothing is deleted and the result is what would be.
+    /// </summary>
+    Task<PruneResult> PruneAsync(DateTime? bansEndedBeforeUtc, DateTime? eventsBeforeUtc, bool dryRun, CancellationToken cancellationToken);
+}

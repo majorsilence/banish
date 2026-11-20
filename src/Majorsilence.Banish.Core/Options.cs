@@ -13,6 +13,8 @@ public sealed class BanishOptions
     public ApiOptions Api { get; set; } = new();
     public DashboardOptions Dashboard { get; set; } = new();
     public AuthOptions Auth { get; set; } = new();
+    public RetentionOptions Retention { get; set; } = new();
+    public GeoIpOptions GeoIp { get; set; } = new();
 }
 
 public static class AuthModes
@@ -176,4 +178,35 @@ public sealed class RuleOptions
 
     /// <summary>Read the whole file from the start instead of only new lines (LogFile).</summary>
     public bool ReadFromStart { get; set; }
+}
+
+/// <summary>How long finished bans and old events are kept before <c>banish prune</c> (and the nightly pass) deletes them.</summary>
+public sealed class RetentionOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Days a lifted or expired ban is kept. Repeat-offender escalation counts these earlier bans, so an
+    /// address is only "remembered" this long. 0 keeps ban history forever.
+    /// </summary>
+    public int BanHistoryDays { get; set; } = 365;
+
+    /// <summary>Days the audit trail of ban events is kept. 0 keeps events forever.</summary>
+    public int EventDays { get; set; } = 90;
+
+    /// <summary>Hours between background passes.</summary>
+    public int IntervalHours { get; set; } = 24;
+}
+
+/// <summary>Optional country and network lookups for the dashboard, from a MaxMind GeoLite2/GeoIP2 file you supply.</summary>
+public sealed class GeoIpOptions
+{
+    /// <summary>Off by default. Nothing is looked up, downloaded or bundled unless this is true.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>Path of a <c>GeoLite2-Country.mmdb</c> or <c>GeoLite2-City.mmdb</c> file.</summary>
+    public string? CountryDatabasePath { get; set; }
+
+    /// <summary>Optional <c>GeoLite2-ASN.mmdb</c> file for network names.</summary>
+    public string? AsnDatabasePath { get; set; }
 }
