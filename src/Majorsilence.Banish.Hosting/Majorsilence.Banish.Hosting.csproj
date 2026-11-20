@@ -6,6 +6,10 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Banish.Store.Ef.Migrations.Sqlite\Majorsilence.Banish.Store.Ef.Migrations.Sqlite.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Store.Ef.Migrations.PostgreSql\Majorsilence.Banish.Store.Ef.Migrations.PostgreSql.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Store.Ef.Migrations.SqlServer\Majorsilence.Banish.Store.Ef.Migrations.SqlServer.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.Store.Ef.Migrations.MySql\Majorsilence.Banish.Store.Ef.Migrations.MySql.csproj" />
     <ProjectReference Include="..\Majorsilence.Banish.Core\Majorsilence.Banish.Core.csproj" />
     <ProjectReference Include="..\Majorsilence.Banish.Detectors\Majorsilence.Banish.Detectors.csproj" />
     <ProjectReference Include="..\Majorsilence.Banish.Firewall\Majorsilence.Banish.Firewall.csproj" />

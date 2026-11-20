@@ -75,7 +75,7 @@ public static class CliApp
             var store = provider.GetRequiredService<IBanStore>();
             if (store is EfBanStore ef)
             {
-                await ef.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+                await ef.MigrateAsync(cancellationToken).ConfigureAwait(false);
             }
 
             return command switch

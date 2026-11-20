@@ -31,7 +31,7 @@ public sealed class StoreInitializer : IHostedLifecycleService
         {
             try
             {
-                await ef.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+                await ef.MigrateAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (Exception ex) when (attempt < 5 && ex is not OperationCanceledException)

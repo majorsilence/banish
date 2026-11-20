@@ -47,7 +47,7 @@ public class ApiTests
         };
         _app = ApiHost.Build(options, []);
         await _app.StartAsync();
-        await _app.Services.GetRequiredService<EfBanStore>().EnsureCreatedAsync(default);
+        await _app.Services.GetRequiredService<EfBanStore>().MigrateAsync(default);
         _url = _app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
         var keys = _app.Services.GetRequiredService<ApiKeyService>();
         if ((await keys.ListAsync(default)).Count == 0)

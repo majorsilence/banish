@@ -1,5 +1,6 @@
 using Majorsilence.Banish.Core;
 using Majorsilence.Banish.Store.Ef;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.MsSql;
 using Testcontainers.MySql;
@@ -44,8 +45,8 @@ public abstract class StoreContractTests
         var store = new StoreOptions { Provider = Provider, ConnectionString = connection };
         _agentA = new ServiceCollection().AddBanishEfStore(store, "agent-a").BuildServiceProvider();
         _agentB = new ServiceCollection().AddBanishEfStore(store, "agent-b").BuildServiceProvider();
-        await A.EnsureCreatedAsync(default);
-        await B.EnsureCreatedAsync(default); // a second agent starting against an existing schema is harmless
+        await A.MigrateAsync(default);
+        await B.MigrateAsync(default); // a second agent starting against an existing schema is harmless
     }
 
     [OneTimeTearDown]
@@ -66,6 +67,30 @@ public abstract class StoreContractTests
         db.Allowlist.RemoveRange(db.Allowlist);
         db.Agents.RemoveRange(db.Agents);
         await db.SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task A_database_without_migration_history_is_adopted_not_recreated()
+    {
+        // What a 0.1.x database looks like: the tables exist but __EFMigrationsHistory does not.
+        var factory = _agentA!.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<BanishDbContext>>();
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            string table = Provider switch
+            {
+                StoreProviders.PostgreSql => "\"__EFMigrationsHistory\"",
+                StoreProviders.MySql => "`__EFMigrationsHistory`",
+                _ => "[__EFMigrationsHistory]",
+            };
+            string sql = "DROP TABLE " + table;
+            await db.Database.ExecuteSqlRawAsync(sql);
+        }
+
+        await A.MigrateAsync(default);
+
+        await using var check = await factory.CreateDbContextAsync();
+        Assert.That((await check.Database.GetAppliedMigrationsAsync()).Count(), Is.EqualTo(1));
+        Assert.That(await check.Database.GetPendingMigrationsAsync(), Is.Empty);
     }
 
     private static Ban NewBan(string address, DateTime? expires, string source = BanSources.Local, string rule = "sshd") => new()

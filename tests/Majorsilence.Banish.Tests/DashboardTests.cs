@@ -265,7 +265,7 @@ public class DashboardHttpTests
         _app = ApiHost.Build(options, ["--environment", "Development"]);
         await _app.StartAsync();
         var store = _app.Services.GetRequiredService<EfBanStore>();
-        await store.EnsureCreatedAsync(default);
+        await store.MigrateAsync(default);
         _url = _app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
         var users = _app.Services.GetRequiredService<UserService>();
         if ((await users.ListAsync(default)).Count == 0)

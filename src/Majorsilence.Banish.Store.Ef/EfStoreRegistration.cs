@@ -30,25 +30,28 @@ public static class EfStoreRegistration
         || provider.Equals(StoreProviders.SqlServer, StringComparison.OrdinalIgnoreCase)
         || provider.Equals(StoreProviders.MySql, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Name of the assembly holding the migrations for a provider.</summary>
+    public static string MigrationsAssemblyName(string provider) => $"Majorsilence.Banish.Store.Ef.Migrations.{provider}";
+
     public static void Configure(DbContextOptionsBuilder builder, StoreOptions store)
     {
         string provider = store.Provider;
         if (provider.Equals(StoreProviders.Sqlite, StringComparison.OrdinalIgnoreCase))
         {
             string connection = store.ConnectionString ?? $"Data Source={DefaultSqlitePath()}";
-            builder.UseSqlite(connection);
+            builder.UseSqlite(connection, o => o.MigrationsAssembly(MigrationsAssemblyName("Sqlite")));
         }
         else if (provider.Equals(StoreProviders.PostgreSql, StringComparison.OrdinalIgnoreCase))
         {
-            builder.UseNpgsql(Require(store));
+            builder.UseNpgsql(Require(store), o => o.MigrationsAssembly(MigrationsAssemblyName("PostgreSql")));
         }
         else if (provider.Equals(StoreProviders.SqlServer, StringComparison.OrdinalIgnoreCase))
         {
-            builder.UseSqlServer(Require(store));
+            builder.UseSqlServer(Require(store), o => o.MigrationsAssembly(MigrationsAssemblyName("SqlServer")));
         }
         else if (provider.Equals(StoreProviders.MySql, StringComparison.OrdinalIgnoreCase))
         {
-            builder.UseMySQL(Require(store));
+            builder.UseMySQL(Require(store), o => o.MigrationsAssembly(MigrationsAssemblyName("MySql")));
         }
         else
         {

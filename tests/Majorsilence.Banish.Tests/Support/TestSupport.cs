@@ -20,7 +20,9 @@ public sealed class TempStore : IAsyncDisposable
 
     public TempStore(TimeProvider? time = null, string machine = "test-host")
     {
-        var options = new DbContextOptionsBuilder<BanishDbContext>().UseSqlite($"Data Source={_path}").Options;
+        var builder = new DbContextOptionsBuilder<BanishDbContext>();
+        EfStoreRegistration.Configure(builder, new StoreOptions { Provider = StoreProviders.Sqlite, ConnectionString = $"Data Source={_path}" });
+        var options = builder.Options;
         Factory = new OptionsFactory(options);
         Store = new EfBanStore(Factory, machine, time);
     }
@@ -33,7 +35,7 @@ public sealed class TempStore : IAsyncDisposable
 
     public async Task<EfBanStore> CreateAsync()
     {
-        await Store.EnsureCreatedAsync(CancellationToken.None);
+        await Store.MigrateAsync(CancellationToken.None);
         return Store;
     }
 

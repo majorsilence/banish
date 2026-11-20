@@ -19,11 +19,11 @@ public sealed class EfBanStore : IBanStore
 
     private DateTime Now => _time.GetUtcNow().UtcDateTime;
 
-    /// <summary>Creates the schema if it does not exist yet.</summary>
-    public async Task EnsureCreatedAsync(CancellationToken cancellationToken)
+    /// <summary>Creates the schema, or upgrades an existing one, with the provider's migrations.</summary>
+    public async Task MigrateAsync(CancellationToken cancellationToken)
     {
         await using var db = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+        await SchemaMigrator.MigrateAsync(db, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Ban> AddAsync(Ban ban, CancellationToken cancellationToken)

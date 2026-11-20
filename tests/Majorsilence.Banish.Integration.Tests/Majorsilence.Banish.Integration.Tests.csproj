@@ -17,6 +17,10 @@
     <Using Include="NUnit.Framework" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Banish.Store.Ef.Migrations.Sqlite\Majorsilence.Banish.Store.Ef.Migrations.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Banish.Store.Ef.Migrations.PostgreSql\Majorsilence.Banish.Store.Ef.Migrations.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Banish.Store.Ef.Migrations.SqlServer\Majorsilence.Banish.Store.Ef.Migrations.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Banish.Store.Ef.Migrations.MySql\Majorsilence.Banish.Store.Ef.Migrations.MySql.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Banish.Hosting\Majorsilence.Banish.Hosting.csproj" />
   </ItemGroup>
 </Project>
