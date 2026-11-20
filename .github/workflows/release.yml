@@ -104,7 +104,7 @@ jobs:
       - name: Install the .deb and check it
         run: |
           V="${VERSION#v}"
-          sudo dpkg -i "out/banish_${V}_amd64.deb"
+          ls -l out; sudo dpkg -i out/banish_*_amd64.deb
           banish help | head -3
           test -x /usr/bin/banish-agent && test -x /usr/bin/banish-api
           test -f /usr/lib/systemd/system/banish-agent.service
