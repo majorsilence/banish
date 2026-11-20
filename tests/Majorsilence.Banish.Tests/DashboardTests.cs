@@ -425,4 +425,68 @@ public class DashboardHttpTests
         Assert.That(login, Does.Contain("Sign in with your organization account").And.Not.Contain("name=\"password\""));
         await app.StopAsync();
     }
+
+    [Test]
+    public async Task Overview_links_to_a_filtered_ban_list_and_the_list_applies_the_filter()
+    {
+        var (client, _) = NewBrowser();
+        await LoginAsync(client, "admin", "an admin password 1", "/");
+
+        string home = await client.GetStringAsync("/");
+        Assert.That(home, Does.Contain("href=\"/bans?rule=").Or.Contain("No active bans."));
+
+        string filtered = await client.GetStringAsync("/bans?rule=no-such-rule&state=all");
+        Assert.That(filtered, Does.Contain("No bans match.").And.Contain("Rule"));
+        string unfiltered = await client.GetStringAsync("/bans?state=all");
+        Assert.That(unfiltered, Does.Contain("203.0.113.5"));
+    }
+
+    [Test]
+    public async Task Pages_carry_the_theme_switch()
+    {
+        string login = await new HttpClient().GetStringAsync(_url + "/login");
+        Assert.That(login, Does.Contain("banishTheme()").And.Contain("banish-theme"));
+    }
+}
+
+public class ChangeFeedTests
+{
+    [Test]
+    public async Task A_burst_of_changes_is_delivered_as_one_notification()
+    {
+        using var feed = new ChangeFeed(TimeSpan.FromMilliseconds(50));
+        int count = 0;
+        var done = new TaskCompletionSource();
+        feed.Changed += () =>
+        {
+            Interlocked.Increment(ref count);
+            done.TrySetResult();
+        };
+
+        for (int i = 0; i < 20; i++)
+        {
+            feed.Notify();
+        }
+
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Task.Delay(200);
+        Assert.That(count, Is.EqualTo(1));
+
+        feed.Notify(); // a later change starts a new cycle
+        await Task.Delay(300);
+        Assert.That(count, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task The_store_raises_Changed_when_a_ban_is_added_or_lifted()
+    {
+        await using var temp = new TempStore();
+        var store = await temp.CreateAsync();
+        int raised = 0;
+        store.Changed += () => raised++;
+
+        await store.AddAsync(new Ban { Address = "203.0.113.7", Source = BanSources.Manual, CreatedUtc = DateTime.UtcNow, Reason = "x" }, default);
+        await store.RemoveAsync("203.0.113.7", "admin", default);
+        Assert.That(raised, Is.EqualTo(2));
+    }
 }

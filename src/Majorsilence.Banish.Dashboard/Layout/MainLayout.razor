@@ -14,6 +14,7 @@
             </AuthorizeView>
         </nav>
         <div class="who">
+            <button class="link" type="button" onclick="banishTheme()" title="Switch between light, dark and your system setting" aria-label="Change colour theme">Theme: <span id="theme-label">auto</span></button>
             <AuthorizeView>
                 <Authorized>
                     <span>@context.User.Identity?.Name <span class="muted">(@Role(context.User))</span></span>

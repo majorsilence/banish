@@ -17,6 +17,9 @@ public sealed class EfBanStore : IBanStore, IPrunable
         _time = time ?? TimeProvider.System;
     }
 
+    /// <summary>Raised after this process changes bans or the allow-list (the dashboard uses it to refresh at once). Changes made by other processes do not raise it.</summary>
+    public event Action? Changed;
+
     private DateTime Now => _time.GetUtcNow().UtcDateTime;
 
     /// <summary>Creates the schema, or upgrades an existing one, with the provider's migrations.</summary>
@@ -72,6 +75,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
             existing.UpdatedUtc = now;
             db.BanEvents.Add(NewEvent(existing, BanEventKinds.Extended, ban.CreatedBy, ban.Reason));
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            Changed?.Invoke();
             return existing;
         }
 
@@ -89,6 +93,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
         db.Bans.Add(ban);
         db.BanEvents.Add(NewEvent(ban, BanEventKinds.Banned, ban.CreatedBy, ban.Reason));
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke();
         return ban;
     }
 
@@ -124,6 +129,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
             }
 
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            Changed?.Invoke();
         }
 
         return added;
@@ -145,6 +151,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
         }
 
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke();
         return bans.Count;
     }
 
@@ -167,6 +174,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
         }
 
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke();
         return bans.Count;
     }
 
@@ -293,6 +301,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
         entry.CreatedUtc = entry.CreatedUtc == default ? Now : entry.CreatedUtc;
         db.Allowlist.Add(entry);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke();
         return entry;
     }
 
@@ -307,6 +316,7 @@ public sealed class EfBanStore : IBanStore, IPrunable
 
         db.Allowlist.Remove(existing);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke();
         return true;
     }
 

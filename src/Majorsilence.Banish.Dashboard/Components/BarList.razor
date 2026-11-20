@@ -8,7 +8,16 @@ else
         @foreach (var item in Items)
         {
             <li title="@item.Key: @item.Count">
-                <span class="bl-label">@item.Key</span>
+                <span class="bl-label">
+                    @if (LinkFormat is null)
+                    {
+                        @item.Key
+                    }
+                    else
+                    {
+                        <a href="@string.Format(CultureInfo.InvariantCulture, LinkFormat, Uri.EscapeDataString(item.Key))">@item.Key</a>
+                    }
+                </span>
                 <span class="bl-track"><span class="bl-bar" style="width:@Format.Inv(Pct(item))%"></span></span>
                 <span class="bl-value">@item.Count.ToString("N0", CultureInfo.InvariantCulture)</span>
             </li>
@@ -18,6 +27,8 @@ else
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<CountItem> Items { get; set; } = [];
+    /// <summary>When set, each label links here; <c>{0}</c> is replaced by the escaped key.</summary>
+    [Parameter] public string? LinkFormat { get; set; }
     [Parameter] public string Empty { get; set; } = "Nothing to show yet.";
 
     private double Pct(CountItem item) => Items.Count == 0 || Items.Max(i => i.Count) == 0 ? 0 : 100.0 * item.Count / Items.Max(i => i.Count);

@@ -19,6 +19,8 @@ public static class DashboardSetup
         services.AddRazorComponents().AddInteractiveServerComponents();
         services.AddCascadingAuthenticationState();
         services.AddScoped<DashboardService>();
+        services.AddSingleton<ChangeFeed>();
+        services.AddHostedService<ChangeFeedBridge>();
         return services;
     }
 

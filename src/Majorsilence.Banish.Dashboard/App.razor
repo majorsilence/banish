@@ -4,6 +4,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <base href="/" />
+    <script>
+        (function () {
+            try { var t = localStorage.getItem('banish-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) { }
+            window.banishTheme = function () {
+                var cur = document.documentElement.getAttribute('data-theme');
+                var next = cur === 'dark' ? 'light' : cur === 'light' ? 'auto' : 'dark';
+                if (next === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', next);
+                try { if (next === 'auto') localStorage.removeItem('banish-theme'); else localStorage.setItem('banish-theme', next); } catch (e) { }
+                banishThemeLabel();
+            };
+            window.banishThemeLabel = function () {
+                var b = document.getElementById('theme-label');
+                if (b) b.textContent = document.documentElement.getAttribute('data-theme') || 'auto';
+            };
+            document.addEventListener('DOMContentLoaded', banishThemeLabel);
+            document.addEventListener('enhancedload', banishThemeLabel);
+        })();
+    </script>
     <HeadOutlet />
     <style>@((MarkupString)BanishCss.Text)</style>
 </head>

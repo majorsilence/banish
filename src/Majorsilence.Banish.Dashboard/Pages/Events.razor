@@ -1,7 +1,9 @@
 @page "/events"
 @rendermode InteractiveServer
 @attribute [Authorize(Policy = Policies.Viewer)]
+@implements IDisposable
 @inject DashboardService Dash
+@inject ChangeFeed Feed
 
 <PageTitle>Banish – Events</PageTitle>
 <h1>Events</h1>
@@ -40,5 +42,17 @@ else
 @code {
     private IReadOnlyList<BanEvent>? _events;
 
-    protected override async Task OnInitializedAsync() => _events = await Dash.GetEventsAsync(200);
+    protected override async Task OnInitializedAsync()
+    {
+        _events = await Dash.GetEventsAsync(200);
+        Feed.Changed += OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(async () =>
+    {
+        _events = await Dash.GetEventsAsync(200);
+        StateHasChanged();
+    });
+
+    public void Dispose() => Feed.Changed -= OnChanged;
 }

@@ -1,7 +1,9 @@
 @page "/bans"
 @rendermode InteractiveServer
 @attribute [Authorize(Policy = Policies.Viewer)]
+@implements IDisposable
 @inject DashboardService Dash
+@inject ChangeFeed Feed
 
 <PageTitle>Banish – Bans</PageTitle>
 <h1>Bans</h1>
@@ -43,6 +45,7 @@
     </label>
     <label>Search<input @bind="_search" placeholder="address or reason" /></label>
     <label>Source<input @bind="_source" placeholder="e.g. local, manual" /></label>
+    <label>Rule<input @bind="_rule" placeholder="e.g. sshd" /></label>
     <label>Machine<input @bind="_machine" /></label>
     <button type="submit">Filter</button>
 </form>
@@ -114,14 +117,58 @@ else
     private readonly BanForm _form = new();
     private PagedResult<Ban>? _page;
     private string _state = "active";
-    private string? _search, _source, _machine;
+    private string? _search, _source, _machine, _rule;
     private int _skip;
     private Guid? _confirm;
     private string? _message;
     private bool _isError;
     private DateTime _now = DateTime.UtcNow;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    // Filters can arrive in the address (links from the overview): /bans?rule=sshd&state=all&search=203.0.113
+    [SupplyParameterFromQuery] public string? State { get; set; }
+    [SupplyParameterFromQuery] public string? Search { get; set; }
+    [SupplyParameterFromQuery] public string? Source { get; set; }
+    [SupplyParameterFromQuery] public string? Machine { get; set; }
+    [SupplyParameterFromQuery] public string? Rule { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Feed.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        bool any = State is not null || Search is not null || Source is not null || Machine is not null || Rule is not null;
+        if (!any)
+        {
+            return;
+        }
+
+        _state = State is "active" or "expired" or "removed" or "all" ? State : (Rule is not null || Source is not null || Machine is not null ? "active" : _state);
+        _search = Search;
+        _source = Source;
+        _machine = Machine;
+        _rule = Rule;
+        _skip = 0;
+        await LoadAsync();
+    }
+
+    private void OnChanged()
+    {
+        if (_confirm is not null)
+        {
+            return; // do not pull the row out from under an admin who is about to confirm
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Feed.Changed -= OnChanged;
 
     private async Task LoadAsync()
     {
@@ -131,6 +178,7 @@ else
             State = _state,
             Search = _search,
             Source = string.IsNullOrWhiteSpace(_source) ? null : _source.Trim(),
+            RuleId = string.IsNullOrWhiteSpace(_rule) ? null : _rule.Trim(),
             MachineName = string.IsNullOrWhiteSpace(_machine) ? null : _machine.Trim(),
             Skip = _skip,
             Take = PageSize,
