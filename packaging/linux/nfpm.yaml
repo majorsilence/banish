@@ -1,0 +1,52 @@
+# Built by packaging/build-linux-packages.sh (nfpm expands ${VERSION}, ${ARCH}, ${SRC}).
+name: banish
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: net
+priority: optional
+maintainer: Majorsilence <https://github.com/majorsilence/banish>
+description: |
+  Banish bans IP addresses that keep failing to log in, and shares the bans between machines.
+  Agents watch logs (sshd, journald, ...), ban offenders in the host firewall, and read and write
+  one central ban list: a local SQLite file by default, or PostgreSQL, SQL Server, MySQL or a Web API.
+  Includes the banish command, banish-agent and banish-api (the central registry and dashboard).
+homepage: https://github.com/majorsilence/banish
+license: MIT OR Apache-2.0 OR BSD-3-Clause
+deb:
+  fields:
+    Bugs: https://github.com/majorsilence/banish/issues
+contents:
+  - src: ${SRC}/banish
+    dst: /usr/bin/banish
+    file_info: { mode: 0755 }
+  - src: ${SRC}/banish-agent
+    dst: /usr/bin/banish-agent
+    file_info: { mode: 0755 }
+  - src: ${SRC}/banish-api
+    dst: /usr/bin/banish-api
+    file_info: { mode: 0755 }
+  - src: packaging/linux/banish-agent.service
+    dst: /usr/lib/systemd/system/banish-agent.service
+    file_info: { mode: 0644 }
+  - src: packaging/linux/banish-api.service
+    dst: /usr/lib/systemd/system/banish-api.service
+    file_info: { mode: 0644 }
+  - src: packaging/linux/banish.json
+    dst: /etc/banish/banish.json
+    type: config|noreplace
+    file_info: { mode: 0640 }
+  - dst: /var/lib/banish
+    type: dir
+    file_info: { mode: 0750 }
+  - src: LICENSE
+    dst: /usr/share/doc/banish/LICENSE
+  - src: README.md
+    dst: /usr/share/doc/banish/README.md
+  - src: docs/DEPLOYMENT.md
+    dst: /usr/share/doc/banish/DEPLOYMENT.md
+recommends:
+  - nftables
+scripts:
+  postinstall: packaging/linux/postinst.sh
+  preremove: packaging/linux/prerm.sh

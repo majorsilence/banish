@@ -1,0 +1,25 @@
+[Unit]
+Description=Banish central ban registry and dashboard
+Documentation=https://github.com/majorsilence/banish
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/banish-api --config /etc/banish/banish.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+DynamicUser=yes
+StateDirectory=banish
+ConfigurationDirectory=banish
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

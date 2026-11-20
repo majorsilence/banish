@@ -1,19 +1,32 @@
 name: release
 
-# Tag a version (git tag v0.1.0 && git push --tags) to build self-contained binaries for every
-# platform, attach them to a GitHub release and publish the API container image.
+# Tag a version (git tag v0.2.0 && git push --tags) to build self-contained binaries for every platform,
+# .deb/.rpm/.msi installers, NuGet packages, an SBOM and signed build-provenance attestations, attach them
+# to a GitHub release and publish the API container image.
+#
+# Run it by hand (Actions > release > Run workflow) to do everything except publishing: the installers are
+# built and installed on the runners as a test, and the files are kept as workflow artifacts.
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (no publishing happens from a manual run)'
+        default: '0.0.0-test'
 
 permissions:
   contents: write
   packages: write
+  id-token: write      # keyless signing of the build attestations
+  attestations: write
 
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  VERSION: ${{ inputs.version || github.ref_name }}
+  PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
 jobs:
   test:
@@ -40,7 +53,7 @@ jobs:
       - name: Publish
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION#v}"
           NAME="banish-${VERSION}-${{ matrix.rid }}"
           OUT="dist/${NAME}"
           for project in Cli Agent Api; do
@@ -65,19 +78,181 @@ jobs:
             dist/*.tar.gz
             dist/*.sha256
 
-  release:
+  # .deb and .rpm, installed on the runner as a smoke test.
+  linux-packages:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: Build nfpm from source (pinned)
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.49.0
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: banish-linux-*
+          path: in
+          merge-multiple: true
+      - name: Build packages
+        run: |
+          V="${VERSION#v}"
+          for rid in linux-x64 linux-arm64; do
+            mkdir -p "src-$rid" && tar -xzf "in/banish-${V}-${rid}.tar.gz" -C "src-$rid" --strip-components=1
+            packaging/build-linux-packages.sh "$V" "$rid" "src-$rid" out
+          done
+      - name: Install the .deb and check it
+        run: |
+          V="${VERSION#v}"
+          sudo dpkg -i "out/banish_${V}_amd64.deb"
+          banish help | head -3
+          test -x /usr/bin/banish-agent && test -x /usr/bin/banish-api
+          test -f /usr/lib/systemd/system/banish-agent.service
+          test -f /etc/banish/banish.json
+          test -d /var/lib/banish
+          systemd-analyze verify /usr/lib/systemd/system/banish-agent.service /usr/lib/systemd/system/banish-api.service || true
+          dpkg -s banish | grep -E '^(Package|Version|Architecture)'
+          sudo dpkg -r banish
+          test ! -e /usr/bin/banish
+          test -f /etc/banish/banish.json   # configuration survives removal
+      - name: Check the .rpm contents
+        run: |
+          sudo apt-get install -y rpm >/dev/null
+          V="${VERSION#v}"
+          for f in out/*.rpm; do rpm -qpl "$f" | grep -E 'bin/banish$|banish-agent.service|etc/banish/banish.json'; done
+      - uses: actions/upload-artifact@v5
+        with:
+          name: banish-packages-linux
+          path: |
+            out/*.deb
+            out/*.rpm
+
+  # .msi, installed and removed on a Windows runner as a smoke test (the runner is an administrator).
+  windows-installer:
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-arm64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: banish-${{ matrix.rid }}
+          path: in
+      - name: Build the MSI
+        shell: pwsh
+        run: |
+          $v = $env:VERSION.TrimStart('v')
+          # MSI versions are numeric (a.b.c.d); drop any pre-release suffix.
+          $msiVersion = ($v -split '-')[0]
+          Expand-Archive "in/banish-$v-${{ matrix.rid }}.zip" -DestinationPath src
+          $arch = if ('${{ matrix.rid }}' -eq 'win-arm64') { 'arm64' } else { 'x64' }
+          dotnet tool install --global wix --version 6.0.2
+          wix build packaging/windows/Banish.wxs -arch $arch -d Version=$msiVersion -d "SrcDir=src/banish-$v-${{ matrix.rid }}" -d RepoDir=. -o "banish-$v-${{ matrix.rid }}.msi"
+          Get-ChildItem *.msi
+      - name: Install, run, install the service, uninstall
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          $v = $env:VERSION.TrimStart('v')
+          $msi = (Resolve-Path "banish-$v-win-x64.msi").Path
+          $p = Start-Process msiexec -ArgumentList "/i `"$msi`" /qn /l*v install.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content install.log -Tail 60; throw "install failed: $($p.ExitCode)" }
+          $dir = "$env:ProgramFiles\Banish"
+          foreach ($f in 'banish.exe','banish-agent.exe','banish-api.exe','LICENSE') { if (-not (Test-Path "$dir\$f")) { throw "missing $f" } }
+          if (-not (Test-Path "$env:ProgramData\Banish\banish.json")) { throw "sample config missing" }
+          if (([Environment]::GetEnvironmentVariable('PATH','Machine') -split ';') -notcontains $dir) { throw "PATH not updated" }
+          & "$dir\banish.exe" help | Select-Object -First 3
+          if (Get-Service Banish -ErrorAction SilentlyContinue) { throw "service must not exist without INSTALLAGENT" }
+
+          # Remove, then install again with the agent service requested, then remove everything.
+          $p = Start-Process msiexec -ArgumentList "/x `"$msi`" /qn /l*v remove1.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content remove1.log -Tail 60; throw "uninstall failed: $($p.ExitCode)" }
+          $p = Start-Process msiexec -ArgumentList "/i `"$msi`" /qn INSTALLAGENT=1 /l*v install2.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content install2.log -Tail 80; throw "install with service failed: $($p.ExitCode)" }
+          $svc = Get-Service Banish -ErrorAction Stop
+          "Service Banish: $($svc.Status)"
+          $p = Start-Process msiexec -ArgumentList "/x `"$msi`" /qn /l*v remove2.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content remove2.log -Tail 80; throw "uninstall with service failed: $($p.ExitCode)" }
+          if (Get-Service Banish -ErrorAction SilentlyContinue) { throw "the Banish service survived uninstall" }
+          if (Test-Path "$dir\banish.exe") { throw "files survived uninstall" }
+          if (-not (Test-Path "$env:ProgramData\Banish\banish.json")) { throw "uninstall must keep the configuration" }
+      - uses: actions/upload-artifact@v5
+        with:
+          name: banish-packages-${{ matrix.rid }}-msi
+          path: '*.msi'
+
+  nuget:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Pack
+        run: |
+          V="${VERSION#v}"
+          dotnet pack Majorsilence.Banish.slnx -c Release -p:Version="$V" -o nupkg
+          ls -l nupkg
+      - uses: actions/upload-artifact@v5
+        with:
+          name: banish-packages-nuget
+          path: nupkg/*.nupkg
+      - name: Push to nuget.org (only when the NUGET_API_KEY secret exists)
+        if: env.PUBLISH == 'true' && env.NUGET_API_KEY != ''
+        run: dotnet nuget push "nupkg/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  release:
+    needs: [build, linux-packages, windows-installer, nuget]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v6
         with:
           path: artifacts
           pattern: banish-*
           merge-multiple: true
+      - name: Package-manager manifests (Homebrew formula, winget)
+        run: |
+          V="${VERSION#v}"
+          packaging/generate-manifests.sh "$V" artifacts manifests
+          (cd manifests && zip -qr "../artifacts/banish-${V}-winget-manifests.zip" winget)
+          cp manifests/banish.rb "artifacts/banish.rb"
+      - name: Software bill of materials
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: artifacts/banish-sbom.spdx.json
+          upload-artifact: false
+      - name: Checksums of everything in the release
+        run: cd artifacts && sha256sum $(ls | grep -v '\.sha256$') > SHA256SUMS
+      - name: Sign (build-provenance attestation, keyless)
+        if: env.PUBLISH == 'true'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/*.msi
+            artifacts/*.deb
+            artifacts/*.rpm
+            artifacts/*.nupkg
       - name: Create the GitHub release
+        if: env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --generate-notes --title "Banish ${GITHUB_REF_NAME}"
+      - uses: actions/upload-artifact@v5
+        if: env.PUBLISH != 'true'
+        with:
+          name: release-preview
+          path: artifacts/*
 
   image:
     needs: test
@@ -85,6 +260,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: docker/login-action@v3
+        if: env.PUBLISH == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -92,7 +268,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ env.PUBLISH == 'true' }}
           tags: |
-            ghcr.io/${{ github.repository }}-api:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}-api:${{ env.VERSION }}
             ghcr.io/${{ github.repository }}-api:latest

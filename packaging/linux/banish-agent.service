@@ -1,0 +1,20 @@
+[Unit]
+Description=Banish intrusion prevention agent
+Documentation=https://github.com/majorsilence/banish
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/banish-agent --config /etc/banish/banish.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/banish
+StateDirectory=banish
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Windows installer. Build (from the repository root):
+    wix build packaging/windows/Banish.wxs -arch x64 -d Version=0.2.0 -d SrcDir=<dir with banish.exe, banish-agent.exe, banish-api.exe> -d RepoDir=. -o banish.msi
+  Silent install:   msiexec /i banish.msi /qn            (files, PATH and a sample config; no service)
+  With the agent:   msiexec /i banish.msi /qn INSTALLAGENT=1   (also runs "banish install")
+  With the API:     msiexec /i banish.msi /qn INSTALLAPI=1
+  Uninstall removes the services this installer or "banish install" created. The database and
+  configuration under %ProgramData%\Banish are kept.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Banish" Manufacturer="Majorsilence" Version="$(Version)"
+           UpgradeCode="6f1d3c52-8a0b-4d54-9e1e-2b6a0c9d7f41" Scope="perMachine" Compressed="yes">
+    <SummaryInformation Description="Banish - shared IP banning for failed logins" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Banish is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Banish">
+        <Component Id="Programs" Guid="b2a7c1d4-3e5f-4a60-8b71-9c0d1e2f3a41" Bitness="always64">
+          <File Id="BanishExe" Source="$(SrcDir)\banish.exe" KeyPath="yes" />
+          <File Id="AgentExe" Source="$(SrcDir)\banish-agent.exe" />
+          <File Id="ApiExe" Source="$(SrcDir)\banish-api.exe" />
+          <Environment Id="PathEntry" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="yes" Permanent="no" />
+        </Component>
+        <Component Id="Documents" Guid="c3b8d2e5-4f60-4b71-9c82-0d1e2f3a4b52" Bitness="always64">
+          <File Id="License" Source="$(RepoDir)\LICENSE" KeyPath="yes" />
+          <File Id="Readme" Source="$(RepoDir)\README.md" />
+          <File Id="Deployment" Source="$(RepoDir)\docs\DEPLOYMENT.md" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAFOLDER" Name="Banish">
+        <!-- Written once and never replaced or removed: it is the administrator's file. -->
+        <Component Id="SampleConfig" Guid="d4c9e3f6-5071-4c82-8d93-1e2f3a4b5c63" NeverOverwrite="yes" Permanent="yes" Bitness="always64">
+          <File Id="ConfigFile" Source="$(RepoDir)\packaging\windows\banish.json" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Banish" Level="1">
+      <ComponentRef Id="Programs" />
+      <ComponentRef Id="Documents" />
+      <ComponentRef Id="SampleConfig" />
+    </Feature>
+
+    <!-- Services are registered by the product's own installer logic, so the MSI and "banish install" cannot disagree. -->
+    <CustomAction Id="InstallAgentService" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no" Return="check"
+                  ExeCommand="&quot;[INSTALLFOLDER]banish.exe&quot; install" />
+    <CustomAction Id="InstallApiService" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no" Return="check"
+                  ExeCommand="&quot;[INSTALLFOLDER]banish.exe&quot; install --api" />
+    <CustomAction Id="RemoveAgentService" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[INSTALLFOLDER]banish.exe&quot; uninstall" />
+    <CustomAction Id="RemoveApiService" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[INSTALLFOLDER]banish.exe&quot; uninstall --api" />
+
+    <InstallExecuteSequence>
+      <Custom Action="InstallAgentService" Before="InstallFinalize" Condition="INSTALLAGENT = &quot;1&quot; AND NOT Installed" />
+      <Custom Action="InstallApiService" Before="InstallFinalize" Condition="INSTALLAPI = &quot;1&quot; AND NOT Installed" />
+      <Custom Action="RemoveAgentService" Before="RemoveFiles" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveApiService" After="RemoveAgentService" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

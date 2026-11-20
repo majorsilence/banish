@@ -1,4 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>nftables, iptables, Windows Firewall and pf providers for Banish.</Description>
+    <PackageTags>banish;fail2ban;ipban;firewall;security</PackageTags>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Majorsilence.Banish.Core\Majorsilence.Banish.Core.csproj" />
   </ItemGroup>

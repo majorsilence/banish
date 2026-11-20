@@ -1,4 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>Log file, command and Windows Event Log failure detectors for Banish.</Description>
+    <PackageTags>banish;fail2ban;ipban;firewall;security</PackageTags>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Diagnostics.EventLog" />
   </ItemGroup>
