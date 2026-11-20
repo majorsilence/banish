@@ -4,6 +4,7 @@
 @implements IDisposable
 @inject DashboardService Dash
 @inject ChangeFeed Feed
+@inject GeoSummaryService Geo
 
 <PageTitle>Banish – Overview</PageTitle>
 <h1>Overview</h1>
@@ -47,6 +48,21 @@ else
             <h2>Most active offenders (failures before ban)</h2>
             <BarList Items="_stats.TopAddresses" Empty="No active bans." />
         </section>
+        @if (_geo is { Enabled: true })
+        {
+            <section class="card wide">
+                <h2>Active bans by country</h2>
+                <WorldMap Bubbles="_geo.Bubbles" Unlocated="_geo.Unlocated" />
+            </section>
+            <section class="card">
+                <h2>Top countries</h2>
+                <BarList Items="_geo.Countries" Empty="No located bans." />
+            </section>
+            <section class="card">
+                <h2>Top networks</h2>
+                <BarList Items="_geo.Networks" Empty="No network data (set GeoIp:AsnDatabasePath)." />
+            </section>
+        }
         <section class="card wide">
             <h2>Agents</h2>
             @if (_stats.Agents.Count == 0)
@@ -82,6 +98,7 @@ else
 
 @code {
     private BanStats? _stats;
+    private GeoSummary? _geo;
     private List<ChartPoint> _days = [];
     private DateTime _now = DateTime.UtcNow;
     private string? _error;
@@ -125,6 +142,7 @@ else
         try
         {
             _stats = await Dash.GetStatsAsync();
+            _geo = await Geo.GetAsync();
             _now = DateTime.UtcNow;
             _days = _stats.BansPerDay
                 .Select(d => new ChartPoint(

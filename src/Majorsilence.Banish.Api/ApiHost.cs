@@ -1,5 +1,6 @@
 using Majorsilence.Banish.Core;
 using Majorsilence.Banish.Dashboard;
+using Majorsilence.Banish.GeoIp;
 using Majorsilence.Banish.Hosting;
 using Majorsilence.Banish.Store.Ef;
 using Majorsilence.Banish.Sync;
@@ -51,6 +52,7 @@ public static class ApiHost
         services.AddWindowsService(o => o.ServiceName = "BanishApi");
         services.AddSystemd();
         services.AddBanishStore(options);
+        services.AddBanishGeoIp(options.GeoIp);
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new AllowlistProvider(options.Allowlist));
         // Only rules with the Http detector are fed by the API (POST /api/v1/failures).

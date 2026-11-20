@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Majorsilence.Banish.Dashboard\Majorsilence.Banish.Dashboard.csproj" />
+    <ProjectReference Include="..\Majorsilence.Banish.GeoIp\Majorsilence.Banish.GeoIp.csproj" />
     <ProjectReference Include="..\Majorsilence.Banish.Hosting\Majorsilence.Banish.Hosting.csproj" />
   </ItemGroup>
 </Project>

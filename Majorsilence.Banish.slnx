@@ -6,6 +6,7 @@
     <Project Path="src/Majorsilence.Banish.Core/Majorsilence.Banish.Core.csproj" />
     <Project Path="src/Majorsilence.Banish.Dashboard/Majorsilence.Banish.Dashboard.csproj" />
     <Project Path="src/Majorsilence.Banish.Detectors/Majorsilence.Banish.Detectors.csproj" />
+    <Project Path="src/Majorsilence.Banish.GeoIp/Majorsilence.Banish.GeoIp.csproj" />
     <Project Path="src/Majorsilence.Banish.Firewall/Majorsilence.Banish.Firewall.csproj" />
     <Project Path="src/Majorsilence.Banish.Hosting/Majorsilence.Banish.Hosting.csproj" />
     <Project Path="src/Majorsilence.Banish.Store.Api/Majorsilence.Banish.Store.Api.csproj" />

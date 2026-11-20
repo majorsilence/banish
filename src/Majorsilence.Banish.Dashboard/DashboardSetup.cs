@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Majorsilence.Banish.Dashboard;
 
@@ -20,6 +21,8 @@ public static class DashboardSetup
         services.AddCascadingAuthenticationState();
         services.AddScoped<DashboardService>();
         services.AddSingleton<ChangeFeed>();
+        services.TryAddSingleton<IGeoLookup, NullGeoLookup>();
+        services.AddSingleton<GeoSummaryService>();
         services.AddHostedService<ChangeFeedBridge>();
         return services;
     }
