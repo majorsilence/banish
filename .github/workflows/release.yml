@@ -99,7 +99,7 @@ jobs:
           V="${VERSION#v}"
           for rid in linux-x64 linux-arm64; do
             mkdir -p "src-$rid" && tar -xzf "in/banish-${V}-${rid}.tar.gz" -C "src-$rid" --strip-components=1
-            packaging/build-linux-packages.sh "$V" "$rid" "src-$rid" out
+            bash packaging/build-linux-packages.sh "$V" "$rid" "src-$rid" out
           done
       - name: Install the .deb and check it
         run: |
@@ -163,7 +163,7 @@ jobs:
           $dir = "$env:ProgramFiles\Banish"
           foreach ($f in 'banish.exe','banish-agent.exe','banish-api.exe','LICENSE') { if (-not (Test-Path "$dir\$f")) { throw "missing $f" } }
           if (-not (Test-Path "$env:ProgramData\Banish\banish.json")) { throw "sample config missing" }
-          if (([Environment]::GetEnvironmentVariable('PATH','Machine') -split ';') -notcontains $dir) { throw "PATH not updated" }
+          if ((([Environment]::GetEnvironmentVariable('PATH','Machine') -split ';') | ForEach-Object { $_.TrimEnd('\') }) -notcontains $dir) { throw "PATH not updated" }
           & "$dir\banish.exe" help | Select-Object -First 3
           if (Get-Service Banish -ErrorAction SilentlyContinue) { throw "service must not exist without INSTALLAGENT" }
 
@@ -220,7 +220,7 @@ jobs:
       - name: Package-manager manifests (Homebrew formula, winget)
         run: |
           V="${VERSION#v}"
-          packaging/generate-manifests.sh "$V" artifacts manifests
+          bash packaging/generate-manifests.sh "$V" artifacts manifests
           (cd manifests && zip -qr "../artifacts/banish-${V}-winget-manifests.zip" winget)
           cp manifests/banish.rb "artifacts/banish.rb"
       - name: Software bill of materials
