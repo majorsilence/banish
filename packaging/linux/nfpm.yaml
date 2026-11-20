@@ -19,12 +19,15 @@ deb:
 contents:
   - src: ${SRC}/banish
     dst: /usr/bin/banish
+    expand: true
     file_info: { mode: 0755 }
   - src: ${SRC}/banish-agent
     dst: /usr/bin/banish-agent
+    expand: true
     file_info: { mode: 0755 }
   - src: ${SRC}/banish-api
     dst: /usr/bin/banish-api
+    expand: true
     file_info: { mode: 0755 }
   - src: packaging/linux/banish-agent.service
     dst: /usr/lib/systemd/system/banish-agent.service
