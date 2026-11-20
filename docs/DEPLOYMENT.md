@@ -61,7 +61,7 @@ The API itself uses one of the database providers from topology 2 (`Store:Provid
 
 ### Archives
 
-Unpack the archive for your platform (for example `banish-0.1.0-linux-x64.tar.gz`) somewhere permanent
+Unpack the archive for your platform (for example `banish-0.2.0-linux-x64.tar.gz`) somewhere permanent
 such as `/opt/banish` or `C:\Program Files\Banish`, then, as root / Administrator:
 
 ```sh

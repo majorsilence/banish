@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-11-20
 
 - **Native packages.** `.deb` and `.rpm` (systemd units, sample config in `/etc/banish`), a Windows `.msi`
   (PATH, sample config, optional service registration with `INSTALLAGENT=1` / `INSTALLAPI=1`), a Homebrew formula and
